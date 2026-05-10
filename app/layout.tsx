@@ -1,5 +1,6 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono, Noto_Sans, Playfair_Display } from "next/font/google"
+import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/site/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils"
@@ -19,10 +20,54 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 })
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+const TITLE = "DocuMind — Chat with any PDF, without vectors"
+const DESCRIPTION =
+  "Vectorless RAG document Q&A. The LLM reads, navigates, and cites your PDFs agentically — no embeddings, no vector database, no chunking heuristics."
+
 export const metadata: Metadata = {
-  title: "DocuMind — Chat with any PDF, without vectors",
-  description:
-    "Vectorless RAG document Q&A. The LLM reads, navigates, and cites your PDFs agentically — no embeddings, no vector database.",
+  metadataBase: new URL(APP_URL),
+  title: {
+    default: TITLE,
+    template: "%s · DocuMind",
+  },
+  description: DESCRIPTION,
+  keywords: [
+    "vectorless RAG",
+    "document Q&A",
+    "PDF chat",
+    "agentic RAG",
+    "LLM tool use",
+    "DeepSeek",
+    "OpenRouter",
+    "Supabase",
+    "Next.js",
+  ],
+  authors: [{ name: "DocuMind" }],
+  openGraph: {
+    type: "website",
+    url: APP_URL,
+    siteName: "DocuMind",
+    title: TITLE,
+    description: DESCRIPTION,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+}
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#1c1917" },
+  ],
 }
 
 export default function RootLayout({
@@ -46,6 +91,7 @@ export default function RootLayout({
         <ThemeProvider>
           {children}
           <Toaster richColors position="top-center" />
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>

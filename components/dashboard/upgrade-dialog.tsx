@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { StartCheckoutButton } from "./billing-actions"
 
 type Props = {
   open: boolean
@@ -57,10 +58,7 @@ export function UpgradeDialog({ open, onOpenChange, reason }: Props) {
         </ul>
         <DialogFooter>
           <DialogClose render={<Button variant="ghost">Maybe later</Button>} />
-          <Button disabled title="Stripe checkout coming soon">
-            <Crown />
-            Upgrade — coming soon
-          </Button>
+          <StartCheckoutButton size="default" />
         </DialogFooter>
       </DialogContent>
     </Dialog>

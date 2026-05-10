@@ -1,11 +1,20 @@
 import Link from "next/link"
 import {
   ArrowRight,
+  Bot,
   Brain,
   Check,
+  ChevronDown,
+  Database,
   FileSearch,
+  Hash,
+  ListTree,
   Quote,
+  ScrollText,
+  Search,
   Sparkles,
+  User,
+  Zap,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -107,6 +116,8 @@ export default function LandingPage() {
       <SiteHeader />
       <main className="flex flex-1 flex-col">
         <Hero />
+        <ProductDemo />
+        <VsVectors />
         <Features />
         <HowItWorks />
         <Pricing />
@@ -162,6 +173,222 @@ function SiteHeader() {
         </div>
       </div>
     </header>
+  )
+}
+
+function ProductDemo() {
+  return (
+    <section className="border-b border-border/60 bg-muted/30">
+      <div className="mx-auto w-full max-w-6xl px-6 py-24">
+        <div className="mb-12 max-w-2xl">
+          <Badge variant="outline">In the chat</Badge>
+          <h2 className="font-heading mt-4 text-4xl font-semibold tracking-tight">
+            See the agent navigate, live.
+          </h2>
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+            A glance at what a single answer looks like — outline on the left,
+            agent reasoning on the right, real citations under every reply.
+          </p>
+        </div>
+        <div className="grid gap-px overflow-hidden border border-border bg-border md:grid-cols-[1fr_2fr_1fr]">
+          <MockOutline />
+          <MockChat />
+          <MockReasoning />
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function MockOutline() {
+  const items = [
+    { num: "1", title: "Introduction", pages: "1–3", level: 0 },
+    { num: "2", title: "Methodology", pages: "4–9", level: 0, active: true },
+    { num: "2.1", title: "Data collection", pages: "5–6", level: 1 },
+    { num: "2.2", title: "Statistical model", pages: "7–9", level: 1 },
+    { num: "3", title: "Results", pages: "10–18", level: 0 },
+    { num: "4", title: "Discussion", pages: "19–22", level: 0 },
+  ]
+  return (
+    <div className="bg-background p-4">
+      <div className="mb-3 flex items-center gap-2 text-[0.6rem] font-semibold uppercase tracking-widest text-muted-foreground">
+        <ListTree className="size-3" />
+        Outline
+      </div>
+      <ul className="flex flex-col gap-0.5">
+        {items.map((it) => (
+          <li
+            key={it.num}
+            className={
+              "flex items-baseline gap-2 px-2 py-1 text-xs " +
+              (it.active ? "bg-muted text-foreground" : "text-muted-foreground")
+            }
+            style={{ paddingLeft: 8 + it.level * 12 }}
+          >
+            <span className="font-mono text-[0.6rem] tracking-wider">
+              {it.num}
+            </span>
+            <span className="line-clamp-1 flex-1">{it.title}</span>
+            <span className="flex items-center gap-0.5 text-[0.55rem] uppercase tracking-widest">
+              <Hash className="size-2.5" />
+              {it.pages}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function MockChat() {
+  return (
+    <div className="flex flex-col gap-6 bg-background p-5 sm:p-7">
+      <div className="flex justify-end">
+        <div className="flex items-start gap-3">
+          <div className="bg-foreground px-3 py-2 text-xs leading-relaxed text-background">
+            What methodology did the authors use?
+          </div>
+          <div className="flex size-6 shrink-0 items-center justify-center bg-muted">
+            <User className="size-3" />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-start gap-3">
+        <div className="flex size-6 shrink-0 items-center justify-center bg-foreground text-background">
+          <Bot className="size-3" />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+          <div className="inline-flex items-center gap-1.5 self-start border border-border bg-card px-2 py-0.5 text-[0.6rem] font-medium uppercase tracking-widest text-muted-foreground">
+            <Brain className="size-2.5" />
+            Reasoned across 3 steps
+            <ChevronDown className="size-2.5" />
+          </div>
+          <div className="text-xs leading-relaxed">
+            They used a mixed-methods design combining a randomized controlled
+            trial with semi-structured interviews. Quantitative outcomes were
+            modelled with a hierarchical Bayesian regression to account for
+            site-level effects.
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2.5">
+            <span className="text-[0.55rem] font-semibold uppercase tracking-widest text-muted-foreground">
+              Sources
+            </span>
+            <span className="border border-border bg-card px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider">
+              §2.1 · p.5–6
+            </span>
+            <span className="border border-border bg-card px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider">
+              §2.2 · p.7–9
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MockReasoning() {
+  const calls = [
+    { tool: "Reading outline", detail: "TOC", icon: ListTree },
+    { tool: "Reading section", detail: "§2.1", icon: ScrollText },
+    { tool: "Reading section", detail: "§2.2", icon: ScrollText },
+  ]
+  return (
+    <div className="bg-background p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="flex items-center gap-2 text-[0.6rem] font-semibold uppercase tracking-widest text-muted-foreground">
+          <Sparkles className="size-3" />
+          Reasoning
+        </span>
+        <span className="text-[0.55rem] uppercase tracking-widest text-muted-foreground">
+          3 calls
+        </span>
+      </div>
+      <ul className="flex flex-col gap-1.5">
+        {calls.map((c, i) => {
+          const Icon = c.icon
+          return (
+            <li
+              key={i}
+              className="flex items-center gap-2 border border-border bg-card px-2 py-1.5 text-[0.65rem]"
+            >
+              <Icon className="size-3 shrink-0 text-foreground" />
+              <span className="flex-1 truncate font-semibold uppercase tracking-widest">
+                {c.tool}
+              </span>
+              <span className="font-mono text-[0.55rem] text-muted-foreground">
+                {c.detail}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+function VsVectors() {
+  const rows = [
+    {
+      label: "Storage",
+      vector: "Embeddings + chunked text in pgvector / Pinecone",
+      docu: "Plain text by page + section tree in Postgres",
+    },
+    {
+      label: "Retrieval",
+      vector: "Top-k cosine similarity on embeddings",
+      docu: "Agent picks tools: outline, section, search, pages",
+    },
+    {
+      label: "Citations",
+      vector: "Best-effort — link back to a chunk",
+      docu: "Real section + page numbers, always",
+    },
+    {
+      label: "Tuning",
+      vector: "Chunk size, overlap, embed model, threshold",
+      docu: "None — the agent navigates",
+    },
+    {
+      label: "New doc cost",
+      vector: "Re-embed (often per change)",
+      docu: "Parse once, search anytime",
+    },
+  ]
+  return (
+    <section className="border-b border-border/60">
+      <div className="mx-auto w-full max-w-5xl px-6 py-24">
+        <div className="mb-12 max-w-2xl">
+          <Badge variant="outline">Vectorless vs vector RAG</Badge>
+          <h2 className="font-heading mt-4 text-4xl font-semibold tracking-tight">
+            What we don't do.
+          </h2>
+        </div>
+        <div className="overflow-hidden border border-border">
+          <div className="grid grid-cols-[1fr_1.4fr_1.4fr] divide-x divide-border bg-muted text-[0.65rem] font-semibold uppercase tracking-widest">
+            <div className="px-4 py-3 text-muted-foreground">&nbsp;</div>
+            <div className="px-4 py-3 text-muted-foreground">
+              Vector RAG
+            </div>
+            <div className="px-4 py-3 text-foreground">DocuMind</div>
+          </div>
+          {rows.map((r) => (
+            <div
+              key={r.label}
+              className="grid grid-cols-[1fr_1.4fr_1.4fr] divide-x divide-border border-t border-border bg-background"
+            >
+              <div className="px-4 py-3 text-xs font-semibold uppercase tracking-widest">
+                {r.label}
+              </div>
+              <div className="px-4 py-3 text-sm text-muted-foreground">
+                {r.vector}
+              </div>
+              <div className="px-4 py-3 text-sm">{r.docu}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   )
 }
 

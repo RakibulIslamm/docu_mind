@@ -1,30 +1,22 @@
-import { FileText, Plus, Upload } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { AlertTriangle, Sparkles } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
 import { DashboardHeader } from "@/components/site/dashboard-header"
+import { UploadDropzone } from "@/components/dashboard/upload-dropzone"
+import {
+  DocumentCard,
+  type DashboardDocument,
+} from "@/components/dashboard/document-card"
 import { createClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/dal"
-
-type Doc = {
-  id: string
-  filename: string
-  total_pages: number | null
-  status: string
-  created_at: string
-}
 
 export default async function DashboardPage() {
   const user = await requireUser()
   const supabase = await createClient()
 
-  const [{ data: profile }, { data: docs }] = await Promise.all([
+  // Both queries fail-soft: a transient Supabase blip degrades the dashboard
+  // (banner + empty grid) rather than crashing it.
+  const [profileResult, docsResult] = await Promise.allSettled([
     supabase
       .from("profiles")
       .select("plan, email")
@@ -32,11 +24,20 @@ export default async function DashboardPage() {
       .maybeSingle(),
     supabase
       .from("documents")
-      .select("id, filename, total_pages, status, created_at")
+      .select("id, filename, total_pages, status, error_message, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
-      .returns<Doc[]>(),
+      .returns<DashboardDocument[]>(),
   ])
+
+  const profile =
+    profileResult.status === "fulfilled" ? profileResult.value.data : null
+  const docs =
+    docsResult.status === "fulfilled" ? docsResult.value.data : null
+  const fetchFailed =
+    profileResult.status === "rejected" ||
+    docsResult.status === "rejected" ||
+    (docsResult.status === "fulfilled" && !!docsResult.value.error)
 
   const documents = docs ?? []
   const plan = profile?.plan ?? "free"
@@ -60,20 +61,39 @@ export default async function DashboardPage() {
               Upload a PDF to start chatting with it.
             </p>
           </div>
-          <Button size="lg" disabled>
-            <Plus />
-            Upload PDF
-          </Button>
+          <Badge variant="outline" className="hidden sm:inline-flex">
+            <Sparkles className="size-3" />
+            {plan === "pro" ? "Pro plan" : "Free plan"}
+          </Badge>
         </div>
+
+        {fetchFailed && (
+          <div className="mb-8 flex items-start gap-3 border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+            <p className="text-destructive">
+              We couldn’t load your documents right now — likely a transient
+              Supabase connection issue. Refresh in a moment.
+            </p>
+          </div>
+        )}
+
+        <section className="mb-10">
+          <UploadDropzone />
+        </section>
 
         {documents.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {documents.map((doc) => (
-              <DocumentCard key={doc.id} doc={doc} />
-            ))}
-          </div>
+          <section>
+            <h2 className="mb-5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              {documents.length} document{documents.length === 1 ? "" : "s"}
+            </h2>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {documents.map((doc) => (
+                <DocumentCard key={doc.id} doc={doc} />
+              ))}
+            </div>
+          </section>
         )}
       </main>
     </div>
@@ -83,50 +103,14 @@ export default async function DashboardPage() {
 function EmptyState() {
   return (
     <Card>
-      <CardContent className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-        <div className="flex size-14 items-center justify-center bg-muted text-muted-foreground">
-          <Upload className="size-6" />
-        </div>
-        <div className="space-y-2">
-          <h3 className="font-heading text-2xl font-semibold tracking-tight">
-            No documents yet
-          </h3>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Upload your first PDF and the agent will read, navigate, and
-            answer questions with real citations.
-          </p>
-        </div>
-        <Button disabled>
-          <Upload />
-          Upload PDF
-        </Button>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">
-          Coming in Phase 2
+      <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+        <h3 className="font-heading text-2xl font-semibold tracking-tight">
+          No documents yet
+        </h3>
+        <p className="max-w-sm text-sm text-muted-foreground">
+          Drop a PDF above and the agent will read, navigate, and answer
+          questions with real citations.
         </p>
-      </CardContent>
-    </Card>
-  )
-}
-
-function DocumentCard({ doc }: { doc: Doc }) {
-  return (
-    <Card size="sm">
-      <CardHeader>
-        <div className="flex size-10 items-center justify-center bg-foreground/5 text-foreground">
-          <FileText className="size-5" />
-        </div>
-        <CardTitle className="mt-4 line-clamp-2 normal-case tracking-normal">
-          {doc.filename}
-        </CardTitle>
-        <CardDescription>
-          {doc.total_pages ? `${doc.total_pages} pages` : "—"} ·{" "}
-          {new Date(doc.created_at).toLocaleDateString()}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Badge variant={doc.status === "ready" ? "default" : "secondary"}>
-          {doc.status}
-        </Badge>
       </CardContent>
     </Card>
   )

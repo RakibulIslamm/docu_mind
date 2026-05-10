@@ -15,7 +15,25 @@ const initialState: LoginState = { ok: false }
 export function LoginForm() {
   const searchParams = useSearchParams()
   const next = searchParams.get("next") ?? "/dashboard"
-  const [state, action, pending] = useActionState(sendMagicLink, initialState)
+  const [state, rawAction, pending] = useActionState(sendMagicLink, initialState)
+
+  // Wrap the action so a thrown server-action error (network blip, stale
+  // action ID after hot reload) becomes a toast instead of an unhandled
+  // exception.
+  const action = async (formData: FormData) => {
+    try {
+      await rawAction(formData)
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e)
+      toast.error(
+        /server action/i.test(m)
+          ? "The page got out of sync — refresh and try again."
+          : /fetch|network|timeout/i.test(m)
+            ? "Network error — check your connection and retry."
+            : "Couldn't send the magic link. Try again.",
+      )
+    }
+  }
 
   useEffect(() => {
     if (state.ok && state.message) toast.success(state.message)

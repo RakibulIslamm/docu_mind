@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils"
 import { extractCitations } from "@/lib/rag/citations"
 import { type Citation } from "./citations"
 import { Markdown } from "./markdown"
+import { ReasoningDisclosure } from "./reasoning-disclosure"
 import { SourcesRow } from "./sources-row"
 import type { ToolCallView } from "./tool-call"
-import { ToolPill } from "./tool-pill"
 import type { UIMessage } from "ai"
 
 export type PersistedMessage = {
@@ -80,8 +80,6 @@ function MessageBubble({
   const citations = isUser ? [] : extractCitations(text)
   const showThinking =
     !isUser && !text && toolCalls.length === 0 && isStreaming && isLast
-  const onlyToolsAndStreaming =
-    !isUser && !text && toolCalls.length > 0 && isStreaming && isLast
 
   if (isUser) {
     return (
@@ -103,13 +101,12 @@ function MessageBubble({
       <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center bg-foreground text-background">
         <Bot className="size-3.5" />
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
         {toolCalls.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {toolCalls.map((c) => (
-              <ToolPill key={c.toolCallId} call={c} />
-            ))}
-          </div>
+          <ReasoningDisclosure
+            calls={toolCalls}
+            isLive={isStreaming && isLast}
+          />
         )}
         {text && (
           <div>
@@ -119,11 +116,6 @@ function MessageBubble({
               onCitationClick={onCitationClick}
             />
           </div>
-        )}
-        {onlyToolsAndStreaming && (
-          <p className="text-xs text-muted-foreground">
-            Composing answer…
-          </p>
         )}
         {showThinking && (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">

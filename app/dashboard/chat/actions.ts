@@ -1,5 +1,6 @@
 "use server"
 
+import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { requireUser } from "@/lib/auth/dal"
 import { createClient } from "@/lib/supabase/server"
@@ -63,4 +64,35 @@ export async function startConversation(
   }
 
   return { ok: true, conversationId: convo.id }
+}
+
+export type DeleteConversationResult =
+  | { ok: true }
+  | { ok: false; error: string }
+
+export async function deleteConversation(
+  conversationId: string,
+): Promise<DeleteConversationResult> {
+  const parsed = z.uuid().safeParse(conversationId)
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid conversation id." }
+  }
+
+  const user = await requireUser()
+  const supabase = await createClient()
+
+  // RLS already prevents cross-user deletes, but match on user_id explicitly
+  // so a missing row returns "not found" instead of silently succeeding.
+  const { error, count } = await supabase
+    .from("conversations")
+    .delete({ count: "exact" })
+    .eq("id", parsed.data)
+    .eq("user_id", user.id)
+
+  if (error) return { ok: false, error: error.message }
+  if (count === 0) return { ok: false, error: "Conversation not found." }
+
+  // messages cascade-delete via FK on conversation_id.
+  revalidatePath("/dashboard")
+  return { ok: true }
 }

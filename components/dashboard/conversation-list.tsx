@@ -1,5 +1,5 @@
-import Link from "next/link"
-import { ArrowRight, MessagesSquare } from "lucide-react"
+import { MessagesSquare } from "lucide-react"
+import { ConversationRow } from "./conversation-row"
 
 export type ConversationListItem = {
   id: string
@@ -31,38 +31,9 @@ export function ConversationList({ conversations }: Props) {
     <ul className="flex flex-col divide-y divide-border border border-border bg-card">
       {conversations.map((c) => (
         <li key={c.id}>
-          <Link
-            href={`/dashboard/chat/${c.id}`}
-            className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted"
-          >
-            <MessagesSquare className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span
-                className="truncate text-sm font-medium"
-                title={c.title ?? "Untitled chat"}
-              >
-                {c.title ?? "Untitled chat"}
-              </span>
-              <span className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
-                {c.documentCount} doc{c.documentCount === 1 ? "" : "s"} ·{" "}
-                {formatDate(c.created_at)}
-              </span>
-            </div>
-            <ArrowRight className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-          </Link>
+          <ConversationRow conversation={c} />
         </li>
       ))}
     </ul>
   )
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso)
-  const now = new Date()
-  const diffMs = now.getTime() - d.getTime()
-  const diffH = diffMs / (1000 * 60 * 60)
-  if (diffH < 1) return "just now"
-  if (diffH < 24) return `${Math.floor(diffH)}h ago`
-  if (diffH < 24 * 7) return `${Math.floor(diffH / 24)}d ago`
-  return d.toLocaleDateString()
 }

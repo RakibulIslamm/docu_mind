@@ -2,6 +2,7 @@ import { notFound } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ChatHeaderActions } from "@/components/chat/chat-header-actions"
 import { ChatWorkspace } from "@/components/chat/chat-workspace"
 import { ThemeToggle } from "@/components/site/theme-toggle"
 import { requireUser } from "@/lib/auth/dal"
@@ -117,6 +118,10 @@ export default async function ChatPage({
             · {docs.length} doc{docs.length === 1 ? "" : "s"}
           </span>
         </div>
+        <ChatHeaderActions
+          conversationId={convo.id}
+          title={convo.title ?? "this chat"}
+        />
         <ThemeToggle />
       </header>
       <ChatWorkspace

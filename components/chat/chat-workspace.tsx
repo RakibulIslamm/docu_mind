@@ -12,6 +12,7 @@ import { DefaultChatTransport, type UIMessage } from "ai"
 import {
   CornerDownLeft,
   FileText,
+  ListTree,
   Loader2,
   PanelRightClose,
   PanelRightOpen,
@@ -36,6 +37,14 @@ import { ReasoningPanel } from "./reasoning-panel"
 import { ToolPill } from "./tool-pill"
 import type { ToolCallView } from "./tool-call"
 import type { Citation } from "./citations"
+import { UpgradeDialog } from "@/components/dashboard/upgrade-dialog"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 
 type Props = {
   conversationId: string
@@ -57,6 +66,7 @@ export function ChatWorkspace({
   const [input, setInput] = useState("")
   const [showReasoning, setShowReasoning] = useState(false)
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
   const transcriptRef = useRef<HTMLDivElement>(null)
 
   const initialMessages = useMemo<UIMessage[]>(
@@ -80,6 +90,13 @@ export function ChatWorkspace({
     messages: initialMessages,
     transport,
     onError: (err) => {
+      const m = err instanceof Error ? err.message : String(err)
+      // The 402 response body includes a `limitReached` field. The AI SDK
+      // surfaces the body as the error message — sniff it.
+      if (/question[_ ]limit|limitReached/i.test(m)) {
+        setUpgradeOpen(true)
+        return
+      }
       toast.error(friendlyChatError(err))
     },
   })
@@ -119,6 +136,11 @@ export function ChatWorkspace({
 
   return (
     <div className="grid flex-1 grid-cols-1 lg:grid-cols-[260px_1fr] xl:grid-cols-[260px_1fr_340px]">
+      <UpgradeDialog
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        reason="question_limit"
+      />
       {/* LEFT: Outline */}
       <aside className="hidden border-r border-border/60 bg-muted/20 lg:block">
         <div className="sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
@@ -132,6 +154,31 @@ export function ChatWorkspace({
 
       {/* CENTER: Chat */}
       <section className="flex h-[calc(100vh-3.5rem)] min-w-0 flex-col">
+        {/* Mobile-only outline trigger */}
+        <div className="flex shrink-0 items-center gap-2 border-b border-border/60 bg-background px-4 py-2 lg:hidden">
+          <Sheet>
+            <SheetTrigger
+              render={
+                <Button variant="ghost" size="xs">
+                  <ListTree />
+                  Outline
+                </Button>
+              }
+            />
+            <SheetContent side="left" className="w-80 p-0">
+              <SheetHeader className="px-4 py-3">
+                <SheetTitle>Document outline</SheetTitle>
+              </SheetHeader>
+              <div className="h-[calc(100vh-4rem)] overflow-y-auto pb-4">
+                <OutlineTree
+                  outline={outline}
+                  activeSectionId={activeSectionId}
+                  onSectionClick={(node) => setActiveSectionId(node.sectionId)}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
         <div ref={transcriptRef} className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-3xl px-6 py-10">
             {messages.length === 0 ? (
@@ -268,16 +315,18 @@ function Composer({
           <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
             Enter to send · Shift+Enter for newline
           </p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={onToggleReasoning}
-            className="xl:hidden"
-          >
-            {showReasoning ? <PanelRightClose /> : <PanelRightOpen />}
-            {showReasoning ? "Hide reasoning" : "Show reasoning"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={onToggleReasoning}
+              className="xl:hidden"
+            >
+              {showReasoning ? <PanelRightClose /> : <PanelRightOpen />}
+              {showReasoning ? "Hide reasoning" : "Show reasoning"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

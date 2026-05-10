@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { SignOutMenuItem } from "./sign-out-menu-item"
+import { ThemeToggle } from "./theme-toggle"
 
 type Props = {
   email: string | null | undefined
@@ -36,11 +37,12 @@ export function DashboardHeader({ email, avatarUrl, plan = "free" }: Props) {
             DocuMind
           </span>
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Badge variant="outline" className="hidden sm:inline-flex">
             <Sparkles className="size-3" />
             {plan === "pro" ? "Pro" : "Free"}
           </Badge>
+          <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger
               render={

@@ -7,6 +7,7 @@ import { z } from "zod"
 import { requireUser } from "@/lib/auth/dal"
 import { createClient } from "@/lib/supabase/server"
 import { processDocument } from "@/lib/rag/parse"
+import { describeLimit, getUserUsage } from "@/lib/billing/limits"
 
 const MAX_BYTES = 25 * 1024 * 1024 // 25MB
 const ACCEPTED_MIME = "application/pdf"
@@ -21,7 +22,7 @@ const FileSchema = z.instanceof(File).refine(
 
 export type UploadResult =
   | { ok: true; documentId: string; filename: string }
-  | { ok: false; error: string }
+  | { ok: false; error: string; limitReached?: "document_limit" }
 
 export async function uploadDocument(formData: FormData): Promise<UploadResult> {
   const user = await requireUser()
@@ -34,6 +35,16 @@ export async function uploadDocument(formData: FormData): Promise<UploadResult> 
 
   const safeFile = parsed.data
   const supabase = await createClient()
+
+  // Free-tier check.
+  const usage = await getUserUsage(supabase, user.id)
+  if (!usage.canUpload) {
+    return {
+      ok: false,
+      error: describeLimit("document_limit", usage),
+      limitReached: "document_limit",
+    }
+  }
 
   const id = randomUUID()
   const filePath = `${user.id}/${id}.pdf`

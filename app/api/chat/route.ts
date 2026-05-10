@@ -4,6 +4,7 @@ import { getUser } from "@/lib/auth/dal"
 import { createClient } from "@/lib/supabase/server"
 import { runDocumentChatAgent } from "@/lib/ai/agents/document-chat"
 import { extractCitations } from "@/lib/rag/citations"
+import { describeLimit, getUserUsage } from "@/lib/billing/limits"
 
 const RequestSchema = z.object({
   conversationId: z.string().uuid(),
@@ -41,6 +42,18 @@ export async function POST(req: Request) {
   const uiMessages = rawMessages as UIMessage[]
 
   const supabase = await createClient()
+
+  // Free-tier question gate.
+  const usage = await getUserUsage(supabase, user.id)
+  if (!usage.canAsk) {
+    return Response.json(
+      {
+        error: describeLimit("question_limit", usage),
+        limitReached: "question_limit",
+      },
+      { status: 402 },
+    )
+  }
 
   // Authorize the conversation.
   const { data: conversation, error: convoErr } = await supabase
@@ -144,6 +157,23 @@ export async function POST(req: Request) {
       const { error } = await supabase.from("messages").insert(rows)
       if (error) {
         console.error("[chat] failed to persist messages:", error.message)
+      }
+
+      // Auto-title from the first user question (only if this is the first
+      // turn — i.e., the conversation now has exactly one user message).
+      if (userText) {
+        const { count } = await supabase
+          .from("messages")
+          .select("id", { count: "exact", head: true })
+          .eq("conversation_id", conversation.id)
+          .eq("role", "user")
+        if (count === 1) {
+          const newTitle = userText.replace(/\s+/g, " ").trim().slice(0, 80)
+          await supabase
+            .from("conversations")
+            .update({ title: newTitle })
+            .eq("id", conversation.id)
+        }
       }
     },
   })

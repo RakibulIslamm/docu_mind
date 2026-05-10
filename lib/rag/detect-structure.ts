@@ -46,9 +46,16 @@ Rules:
 - "start_page" and "end_page" are inclusive 1-based page numbers from the source.
 - A section's end_page is the page just before the next sibling/parent starts (or the last page of the document for the final section).
 - Cover the entire document — start with page 1 and end with the last page. No gaps, no overlaps.
-- If the document has no headings, return ONE section with title="Document", level=1, start_page=1, end_page=<last>.
 - Skip front-matter pages without titles (cover, copyright) by absorbing them into the first real section.
-- Never invent sections that aren't visible in the text. Never invent page numbers.`
+- Never invent sections that aren't visible in the text. Never invent page numbers.
+
+IMPORTANT — find structure even when there are no formal headings:
+- If you see repeating patterns like "Idea 1", "Idea 2", "Topic 1", "Tip 1", or any recurring discrete units, treat each as a section.
+- If the document is a list of distinct items (case studies, recipes, profiles, ideas), each item is its own section. Use the item title as the section title.
+- If the topic clearly shifts every few pages (a new subject matter, a new product, a new person), break sections at the shift.
+- Only as a last resort — when the document is genuinely a single continuous narrative with no structure — return 5 to 10 sections by splitting the document into roughly equal page ranges. Title each with a short summary of what's actually on those pages (e.g. "Background and motivation", "Methodology", "Results"). Do NOT just return one giant section.
+
+Never return a single section that spans the whole document for a multi-page document. That's a failure mode.`
 
 export async function detectStructure(
   pages: ExtractedPage[],
@@ -89,22 +96,53 @@ Return the outline.`
       prompt: userPrompt,
       temperature: 0,
     })
-    return clampToDocument(object.sections, totalPages)
+    const clamped = clampToDocument(object.sections, totalPages)
+    // If the LLM returned a degenerate outline (one section covering most of
+    // the document), fall back to evenly-sized chunks so the agent has
+    // manageable units to read instead of trying read_pages on the whole doc.
+    if (isDegenerate(clamped, totalPages)) {
+      return chunkFallback(totalPages)
+    }
+    return clamped
   } catch (error) {
     if (NoObjectGeneratedError.isInstance(error)) {
-      // Fall back to a single section spanning the whole document.
-      return [
-        {
-          level: 1,
-          section_number: null,
-          title: "Document",
-          start_page: 1,
-          end_page: totalPages,
-        },
-      ]
+      return chunkFallback(totalPages)
     }
     throw error
   }
+}
+
+function isDegenerate(
+  sections: SectionOutline[],
+  totalPages: number,
+): boolean {
+  if (totalPages < 8) return false // small docs are fine with one section
+  if (sections.length === 0) return true
+  if (sections.length === 1) {
+    const span = sections[0].end_page - sections[0].start_page + 1
+    return span >= totalPages * 0.7
+  }
+  return false
+}
+
+function chunkFallback(totalPages: number): SectionOutline[] {
+  // Create 6–10 sections of roughly equal size so the agent can read in chunks.
+  const targetSections = Math.min(10, Math.max(6, Math.ceil(totalPages / 10)))
+  const pagesPerSection = Math.ceil(totalPages / targetSections)
+  const sections: SectionOutline[] = []
+  for (let i = 0; i < targetSections; i++) {
+    const start = i * pagesPerSection + 1
+    const end = Math.min(totalPages, (i + 1) * pagesPerSection)
+    if (start > totalPages) break
+    sections.push({
+      level: 1,
+      section_number: `${i + 1}`,
+      title: `Pages ${start}–${end}`,
+      start_page: start,
+      end_page: end,
+    })
+  }
+  return sections
 }
 
 function formatPage(p: ExtractedPage): string {

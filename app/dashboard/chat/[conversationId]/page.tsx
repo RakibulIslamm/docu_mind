@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ChatWorkspace } from "@/components/chat/chat-workspace"
+import { ThemeToggle } from "@/components/site/theme-toggle"
 import { requireUser } from "@/lib/auth/dal"
 import { createClient } from "@/lib/supabase/server"
 import type { OutlineNode, OutlineDocument } from "@/components/chat/outline-tree"
@@ -112,10 +113,11 @@ export default async function ChatPage({
         </Button>
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <h1 className="truncate text-sm font-semibold">{convo.title}</h1>
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">
+          <span className="hidden text-xs uppercase tracking-widest text-muted-foreground sm:inline">
             · {docs.length} doc{docs.length === 1 ? "" : "s"}
           </span>
         </div>
+        <ThemeToggle />
       </header>
       <ChatWorkspace
         conversationId={convo.id}

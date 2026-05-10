@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { uploadDocument } from "@/app/dashboard/actions"
+import { UpgradeDialog } from "./upgrade-dialog"
 
 const MAX_BYTES = 25 * 1024 * 1024
 const MAX_FILES = 10
@@ -25,6 +26,7 @@ export function UploadDropzone() {
   const router = useRouter()
   const [items, setItems] = useState<Item[]>([])
   const [isPending, startTransition] = useTransition()
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
 
   const onDrop = useCallback(
     (accepted: File[], rejected: FileRejection[]) => {
@@ -69,6 +71,13 @@ export function UploadDropzone() {
           )
           if (!result.ok) {
             toast.error(`${item.file.name}: ${result.error}`)
+            if (
+              "limitReached" in result &&
+              result.limitReached === "document_limit"
+            ) {
+              setUpgradeOpen(true)
+              break // stop trying further files
+            }
           }
         }
         router.refresh()
@@ -91,6 +100,11 @@ export function UploadDropzone() {
 
   return (
     <div className="flex flex-col gap-4">
+      <UpgradeDialog
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        reason="document_limit"
+      />
       <div
         {...getRootProps()}
         className={cn(

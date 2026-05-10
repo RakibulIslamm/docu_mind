@@ -1,8 +1,4 @@
-import {
-  convertToModelMessages,
-  type UIMessage,
-  type ModelMessage,
-} from "ai"
+import { convertToModelMessages, type UIMessage } from "ai"
 import { z } from "zod"
 import { getUser } from "@/lib/auth/dal"
 import { createClient } from "@/lib/supabase/server"
@@ -11,10 +7,8 @@ import { extractCitations } from "@/lib/rag/citations"
 
 const RequestSchema = z.object({
   conversationId: z.string().uuid(),
-  messages: z.array(z.any()), // UIMessage shape — validated by SDK
+  messages: z.array(z.any()),
 })
-
-const HISTORY_LIMIT = 10
 
 export async function POST(req: Request) {
   const user = await getUser()
@@ -48,7 +42,7 @@ export async function POST(req: Request) {
 
   const supabase = await createClient()
 
-  // Load + authorize the conversation.
+  // Authorize the conversation.
   const { data: conversation, error: convoErr } = await supabase
     .from("conversations")
     .select("id, user_id, document_ids")
@@ -92,34 +86,17 @@ export async function POST(req: Request) {
     )
   }
 
-  // Pull persisted history (older than what the client sent).
-  const { data: history } = await supabase
-    .from("messages")
-    .select("role, content, created_at")
-    .eq("conversation_id", conversation.id)
-    .order("created_at", { ascending: false })
-    .limit(HISTORY_LIMIT)
-
-  const persistedMessages: ModelMessage[] = (history ?? [])
-    .reverse()
-    .filter((m) => m.role === "user" || m.role === "assistant")
-    .map((m) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    }))
-
-  // The client's UIMessages include the just-sent user message and the
-  // current in-flight assistant turn. Append them to the persisted history.
-  const liveMessages = await convertToModelMessages(uiMessages)
-
-  // De-dupe: if the client's first message is the same role+text as the last
-  // persisted message, drop it. This prevents duplication when useChat is
-  // initialized with persisted messages.
-  const merged = mergeHistories(persistedMessages, liveMessages)
+  // useChat sends the full UI message history (hydrated from DB on page load),
+  // so the client is the source of truth. No need to re-merge with DB here.
+  const modelMessages = await convertToModelMessages(uiMessages)
 
   const result = runDocumentChatAgent({
-    context: { supabase, userId: user.id, documentIds: ready.map((d) => d.id) },
-    messages: merged,
+    context: {
+      supabase,
+      userId: user.id,
+      documentIds: ready.map((d) => d.id),
+    },
+    messages: modelMessages,
     documents: ready.map((d) => ({
       id: d.id,
       filename: d.filename,
@@ -131,10 +108,8 @@ export async function POST(req: Request) {
     onFinish: async ({ responseMessage, isAborted }) => {
       if (isAborted) return
 
-      // Persist the user's last message and the assistant's response.
       const lastUser = [...uiMessages].reverse().find((m) => m.role === "user")
       const userText = lastUser ? extractText(lastUser) : ""
-
       const assistantText = extractText(responseMessage)
       const toolCalls = collectToolCalls(responseMessage)
       const citations = extractCitations(assistantText)
@@ -156,6 +131,8 @@ export async function POST(req: Request) {
           citations: null,
         })
       }
+      // Persist even if assistantText is empty — at least we record the
+      // tool-call attempt so the user can see what happened on reload.
       rows.push({
         conversation_id: conversation.id,
         role: "assistant",
@@ -164,33 +141,12 @@ export async function POST(req: Request) {
         citations: citations.length > 0 ? citations : null,
       })
 
-      if (rows.length > 0) {
-        const { error } = await supabase.from("messages").insert(rows)
-        if (error) {
-          console.error("[chat] failed to persist messages:", error.message)
-        }
+      const { error } = await supabase.from("messages").insert(rows)
+      if (error) {
+        console.error("[chat] failed to persist messages:", error.message)
       }
     },
   })
-}
-
-function mergeHistories(
-  persisted: ModelMessage[],
-  live: ModelMessage[],
-): ModelMessage[] {
-  if (persisted.length === 0) return live
-  const last = persisted[persisted.length - 1]
-  const first = live[0]
-  if (
-    first &&
-    first.role === last.role &&
-    typeof first.content === "string" &&
-    typeof last.content === "string" &&
-    first.content === last.content
-  ) {
-    return [...persisted, ...live.slice(1)]
-  }
-  return [...persisted, ...live]
 }
 
 function extractText(message: UIMessage): string {

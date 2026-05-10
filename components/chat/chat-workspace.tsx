@@ -1,13 +1,22 @@
 "use client"
 
-import { useMemo, useRef, useState, useEffect } from "react"
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, type UIMessage } from "ai"
 import {
+  CornerDownLeft,
+  FileText,
+  Loader2,
   PanelRightClose,
   PanelRightOpen,
-  Send,
   Sparkles,
+  Square,
 } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -24,6 +33,8 @@ import {
   type OutlineNode,
 } from "./outline-tree"
 import { ReasoningPanel } from "./reasoning-panel"
+import { ToolPill } from "./tool-pill"
+import type { ToolCallView } from "./tool-call"
 import type { Citation } from "./citations"
 
 type Props = {
@@ -35,7 +46,7 @@ type Props = {
 const SUGGESTED_QUESTIONS = [
   "Summarize the document in 5 bullet points.",
   "What are the key conclusions?",
-  "Find the section about pricing or cost.",
+  "List the main sections and what each covers.",
 ]
 
 export function ChatWorkspace({
@@ -48,7 +59,6 @@ export function ChatWorkspace({
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null)
   const transcriptRef = useRef<HTMLDivElement>(null)
 
-  // Hydrate the chat with persisted history so reloads don't lose state.
   const initialMessages = useMemo<UIMessage[]>(
     () => persistedToUiMessages(persistedMessages),
     [persistedMessages],
@@ -65,7 +75,7 @@ export function ChatWorkspace({
     [conversationId],
   )
 
-  const { messages, sendMessage, status, error } = useChat({
+  const { messages, sendMessage, status, error, stop } = useChat({
     id: conversationId,
     messages: initialMessages,
     transport,
@@ -76,11 +86,14 @@ export function ChatWorkspace({
 
   const isStreaming = status === "streaming" || status === "submitted"
 
-  // Auto-scroll to bottom when new content arrives.
+  // Find the live (in-flight) tool call to show in the status strip.
+  const liveTool = findLiveTool(messages, isStreaming)
+
+  // Auto-scroll on new content.
   useEffect(() => {
     const el = transcriptRef.current
     if (!el) return
-    el.scrollTop = el.scrollHeight
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })
   }, [messages, isStreaming])
 
   const handleSend = async (text: string) => {
@@ -95,7 +108,6 @@ export function ChatWorkspace({
   }
 
   const handleCitationClick = (citation: Citation) => {
-    // Find a section that contains the cited page in any document.
     for (const doc of outline) {
       const match = findSectionForPage(doc.sections, citation.pageStart)
       if (match) {
@@ -106,9 +118,9 @@ export function ChatWorkspace({
   }
 
   return (
-    <div className="grid flex-1 grid-cols-1 lg:grid-cols-[280px_1fr] xl:grid-cols-[280px_1fr_360px]">
+    <div className="grid flex-1 grid-cols-1 lg:grid-cols-[260px_1fr] xl:grid-cols-[260px_1fr_340px]">
       {/* LEFT: Outline */}
-      <aside className="hidden border-r border-border/60 lg:block">
+      <aside className="hidden border-r border-border/60 bg-muted/20 lg:block">
         <div className="sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
           <OutlineTree
             outline={outline}
@@ -119,11 +131,12 @@ export function ChatWorkspace({
       </aside>
 
       {/* CENTER: Chat */}
-      <section className="flex h-[calc(100vh-3.5rem)] flex-col">
+      <section className="flex h-[calc(100vh-3.5rem)] min-w-0 flex-col">
         <div ref={transcriptRef} className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-3xl px-6 py-8">
+          <div className="mx-auto w-full max-w-3xl px-6 py-10">
             {messages.length === 0 ? (
               <EmptyState
+                outline={outline}
                 onSuggestion={handleSend}
                 disabled={isStreaming}
               />
@@ -142,20 +155,38 @@ export function ChatWorkspace({
           </div>
         </div>
 
+        {liveTool && (
+          <div className="border-t border-border/60 bg-muted/40 px-6 py-2">
+            <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
+              <ToolPill call={liveTool} compact={false} />
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                onClick={stop}
+                aria-label="Stop generating"
+              >
+                <Square />
+                Stop
+              </Button>
+            </div>
+          </div>
+        )}
+
         <Composer
           value={input}
           onChange={setInput}
           onSend={handleSend}
-          disabled={isStreaming}
+          isStreaming={isStreaming}
           showReasoning={showReasoning}
           onToggleReasoning={() => setShowReasoning((v) => !v)}
         />
       </section>
 
-      {/* RIGHT: Reasoning (xl screens always; toggleable on smaller) */}
+      {/* RIGHT: Reasoning */}
       <aside
         className={cn(
-          "border-l border-border/60",
+          "border-l border-border/60 bg-muted/20",
           showReasoning ? "block" : "hidden xl:block",
         )}
       >
@@ -171,51 +202,69 @@ function Composer({
   value,
   onChange,
   onSend,
-  disabled,
+  isStreaming,
   showReasoning,
   onToggleReasoning,
 }: {
   value: string
   onChange: (v: string) => void
   onSend: (v: string) => void
-  disabled: boolean
+  isStreaming: boolean
   showReasoning: boolean
   onToggleReasoning: () => void
 }) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-resize the textarea up to ~6 lines.
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = "auto"
+    const next = Math.min(el.scrollHeight, 168)
+    el.style.height = `${next}px`
+  }, [value])
+
+  const canSend = value.trim().length > 0 && !isStreaming
+
   return (
     <div className="border-t border-border/60 bg-background">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-6 py-4">
+      <div className="mx-auto w-full max-w-3xl px-6 py-4">
         <form
           onSubmit={(e) => {
             e.preventDefault()
             onSend(value)
           }}
-          className="flex items-end gap-2"
+          className={cn(
+            "flex items-end gap-2 border border-border bg-card p-2 transition-colors",
+            "focus-within:border-foreground",
+          )}
         >
           <Textarea
+            ref={ref}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault()
-                onSend(value)
+                if (canSend) onSend(value)
               }
             }}
             placeholder="Ask anything about the document…"
             rows={1}
-            className="max-h-40 min-h-[44px] resize-none"
-            disabled={disabled}
+            className="min-h-9 resize-none border-0 bg-transparent px-2 py-2 text-sm leading-relaxed shadow-none focus-visible:ring-0"
+            disabled={isStreaming}
           />
           <Button
             type="submit"
-            size="icon-lg"
-            disabled={disabled || !value.trim()}
+            size="sm"
+            disabled={!canSend}
             aria-label="Send message"
           >
-            <Send />
+            {isStreaming ? <Loader2 className="animate-spin" /> : <CornerDownLeft />}
+            Send
           </Button>
         </form>
-        <div className="flex items-center justify-between">
+        <div className="mt-2 flex items-center justify-between">
           <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
             Enter to send · Shift+Enter for newline
           </p>
@@ -236,34 +285,66 @@ function Composer({
 }
 
 function EmptyState({
+  outline,
   onSuggestion,
   disabled,
 }: {
+  outline: OutlineDocument[]
   onSuggestion: (text: string) => void
   disabled: boolean
 }) {
   return (
-    <div className="flex flex-col items-center gap-6 py-16 text-center">
+    <div className="flex flex-col items-center gap-8 py-12 text-center">
       <div className="flex size-12 items-center justify-center bg-foreground text-background">
         <Sparkles className="size-5" />
       </div>
       <div className="space-y-2">
         <h2 className="font-heading text-3xl font-semibold tracking-tight">
-          Ask anything about the document
+          Ask anything
         </h2>
         <p className="max-w-md text-sm text-muted-foreground">
-          The agent will read the outline, fetch the right sections, and cite
+          The agent reads the outline, fetches the right sections, and cites
           every answer back to a section and page.
         </p>
       </div>
+
+      {outline.length > 0 && (
+        <div className="w-full max-w-md">
+          <p className="mb-2 text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+            Chatting with
+          </p>
+          <ul className="flex flex-col divide-y divide-border border border-border bg-card">
+            {outline.map((doc) => (
+              <li
+                key={doc.documentId}
+                className="flex items-center gap-3 px-3 py-2.5 text-left"
+              >
+                <FileText className="size-4 shrink-0 text-muted-foreground" />
+                <span className="flex-1 truncate text-sm" title={doc.filename}>
+                  {doc.filename}
+                </span>
+                {doc.totalPages && (
+                  <span className="shrink-0 text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                    {doc.totalPages}p
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="flex w-full max-w-md flex-col gap-2">
+        <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+          Try asking
+        </p>
         {SUGGESTED_QUESTIONS.map((q) => (
           <button
             key={q}
             type="button"
             disabled={disabled}
             onClick={() => onSuggestion(q)}
-            className="border border-border bg-card px-4 py-3 text-left text-sm transition-colors hover:bg-muted disabled:opacity-50"
+            className="border border-border bg-card px-4 py-3 text-left text-sm transition-colors hover:bg-muted hover:border-foreground/40 disabled:opacity-50"
           >
             {q}
           </button>
@@ -271,6 +352,47 @@ function EmptyState({
       </div>
     </div>
   )
+}
+
+function findLiveTool(
+  messages: UIMessage[],
+  isStreaming: boolean,
+): ToolCallView | null {
+  if (!isStreaming) return null
+  // Walk the most recent assistant message looking for a tool that's still
+  // in an `input-*` state — that's the one running right now.
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.role !== "assistant") continue
+    let lastTool: ToolCallView | null = null
+    for (const part of m.parts) {
+      if (typeof part.type !== "string" || !part.type.startsWith("tool-"))
+        continue
+      const p = part as unknown as {
+        type: string
+        toolCallId: string
+        state?: string
+        input?: unknown
+        output?: unknown
+        errorText?: string
+      }
+      lastTool = {
+        toolCallId: p.toolCallId,
+        toolName: p.type.replace(/^tool-/, ""),
+        state: p.state,
+        input: p.input,
+        output: p.output,
+        errorText: p.errorText,
+      }
+      if (p.state === "input-streaming" || p.state === "input-available") {
+        return lastTool
+      }
+    }
+    return lastTool && (lastTool.state ?? "").startsWith("input")
+      ? lastTool
+      : null
+  }
+  return null
 }
 
 function findSectionForPage(

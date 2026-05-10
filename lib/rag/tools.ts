@@ -203,11 +203,15 @@ const searchDocument = (ctx: ToolContext) =>
   })
 
 // ---------- Tool 4: read_pages ----------
+const MAX_PAGES_PER_CALL = 5
+
 const readPages = (ctx: ToolContext) =>
   tool({
     description:
-      "Read raw text from a contiguous page range of a document (max 5 pages per call). " +
-      "Use this when you need verbatim text from specific pages that aren't aligned to a single section.",
+      `Read raw text from a contiguous page range. Max ${MAX_PAGES_PER_CALL} pages per call (inclusive). ` +
+      "If you request more, the range is silently clamped to the first " +
+      `${MAX_PAGES_PER_CALL} pages and a 'clamped' flag is returned. ` +
+      "Prefer read_section over read_pages whenever possible — sections give you the same content with hierarchy and summaries.",
     inputSchema: z.object({
       documentId: z.string().uuid().describe("ID of the document to read."),
       startPage: z
@@ -219,7 +223,10 @@ const readPages = (ctx: ToolContext) =>
         .number()
         .int()
         .min(1)
-        .describe("Last page number (inclusive). Must be within 5 pages of startPage."),
+        .describe(
+          `Last page number (inclusive, 1-based). Must be >= startPage. ` +
+            `(endPage - startPage + 1) should be <= ${MAX_PAGES_PER_CALL}; larger requests are clamped.`,
+        ),
     }),
     execute: async ({ documentId, startPage, endPage }) => {
       if (!ctx.documentIds.includes(documentId)) {
@@ -228,31 +235,42 @@ const readPages = (ctx: ToolContext) =>
         }
       }
       if (endPage < startPage) {
-        return { error: "endPage must be >= startPage." }
-      }
-      if (endPage - startPage + 1 > 5) {
         return {
-          error: "Page range too large. Read at most 5 pages per call.",
+          error: `endPage (${endPage}) must be >= startPage (${startPage}).`,
         }
       }
+
+      const requested = endPage - startPage + 1
+      const clampedEnd =
+        requested > MAX_PAGES_PER_CALL
+          ? startPage + MAX_PAGES_PER_CALL - 1
+          : endPage
+      const clamped = clampedEnd !== endPage
 
       const { data, error } = await ctx.supabase
         .from("document_pages")
         .select("page_number, content")
         .eq("document_id", documentId)
         .gte("page_number", startPage)
-        .lte("page_number", endPage)
+        .lte("page_number", clampedEnd)
         .order("page_number", { ascending: true })
 
       if (error) return { error: error.message }
 
       const pages = data ?? []
       if (pages.length === 0) {
-        return { error: `No pages found in range ${startPage}-${endPage}.` }
+        return {
+          error: `No pages found in range ${startPage}-${clampedEnd}. The document may be shorter than that.`,
+        }
       }
 
       return {
         documentId,
+        pageRange: { start: startPage, end: clampedEnd },
+        clamped,
+        clampedNote: clamped
+          ? `Requested ${requested} pages; clamped to ${MAX_PAGES_PER_CALL}. Call again with startPage=${clampedEnd + 1} to continue.`
+          : undefined,
         pages: pages.map((p) => ({
           pageNumber: p.page_number,
           content: (p.content ?? "").slice(0, 4_000),

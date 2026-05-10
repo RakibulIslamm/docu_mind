@@ -3,8 +3,11 @@
 import { Bot, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { extractCitations } from "@/lib/rag/citations"
-import { CitedText, type Citation } from "./citations"
-import { ToolCallItem, type ToolCallView } from "./tool-call"
+import { type Citation } from "./citations"
+import { Markdown } from "./markdown"
+import { SourcesRow } from "./sources-row"
+import type { ToolCallView } from "./tool-call"
+import { ToolPill } from "./tool-pill"
 import type { UIMessage } from "ai"
 
 export type PersistedMessage = {
@@ -23,11 +26,12 @@ type Props = {
 
 export function MessageList({ messages, isStreaming, onCitationClick }: Props) {
   return (
-    <div className="flex flex-col gap-6">
-      {messages.map((m) => (
+    <div className="flex flex-col gap-8">
+      {messages.map((m, i) => (
         <MessageBubble
           key={m.id}
           message={m}
+          isLast={i === messages.length - 1}
           isStreaming={isStreaming}
           onCitationClick={onCitationClick}
         />
@@ -38,10 +42,12 @@ export function MessageList({ messages, isStreaming, onCitationClick }: Props) {
 
 function MessageBubble({
   message,
+  isLast,
   isStreaming,
   onCitationClick,
 }: {
   message: UIMessage
+  isLast: boolean
   isStreaming: boolean
   onCitationClick?: (citation: Citation) => void
 }) {
@@ -50,7 +56,7 @@ function MessageBubble({
     .filter((p): p is { type: "text"; text: string } => p.type === "text")
     .map((p) => p.text)
     .join("")
-  const toolCalls = message.parts
+  const toolCalls: ToolCallView[] = message.parts
     .filter((p) => typeof p.type === "string" && p.type.startsWith("tool-"))
     .map((p) => {
       const part = p as unknown as {
@@ -68,67 +74,64 @@ function MessageBubble({
         input: part.input,
         output: part.output,
         errorText: part.errorText,
-      } satisfies ToolCallView
+      }
     })
 
   const citations = isUser ? [] : extractCitations(text)
+  const showThinking =
+    !isUser && !text && toolCalls.length === 0 && isStreaming && isLast
+  const onlyToolsAndStreaming =
+    !isUser && !text && toolCalls.length > 0 && isStreaming && isLast
+
+  if (isUser) {
+    return (
+      <div className="flex justify-end">
+        <div className="flex max-w-[85%] items-start gap-3">
+          <div className="bg-foreground px-4 py-3 text-sm leading-relaxed text-background">
+            <span className="whitespace-pre-wrap">{text}</span>
+          </div>
+          <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center bg-muted text-foreground">
+            <User className="size-3.5" />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div
-      className={cn(
-        "flex gap-3",
-        isUser ? "justify-end" : "justify-start",
-      )}
-    >
-      {!isUser && (
-        <div className="flex size-8 shrink-0 items-center justify-center bg-foreground text-background">
-          <Bot className="size-4" />
-        </div>
-      )}
-      <div
-        className={cn(
-          "flex max-w-[85%] flex-col gap-3",
-          isUser && "items-end",
-        )}
-      >
-        {!isUser && toolCalls.length > 0 && (
-          <div className="flex w-full flex-col gap-1.5">
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center bg-foreground text-background">
+        <Bot className="size-3.5" />
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        {toolCalls.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
             {toolCalls.map((c) => (
-              <ToolCallItem key={c.toolCallId} call={c} />
+              <ToolPill key={c.toolCallId} call={c} />
             ))}
           </div>
         )}
         {text && (
-          <div
-            className={cn(
-              "px-4 py-3 text-sm leading-relaxed",
-              isUser
-                ? "bg-foreground text-background"
-                : "border border-border bg-card text-foreground",
-            )}
-          >
-            {isUser ? (
-              <span className="whitespace-pre-wrap">{text}</span>
-            ) : (
-              <CitedText
-                text={text}
-                citations={citations}
-                onCitationClick={onCitationClick}
-              />
-            )}
+          <div>
+            <Markdown text={text} />
+            <SourcesRow
+              citations={citations}
+              onCitationClick={onCitationClick}
+            />
           </div>
         )}
-        {!isUser && !text && toolCalls.length === 0 && isStreaming && (
-          <div className="border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+        {onlyToolsAndStreaming && (
+          <p className="text-xs text-muted-foreground">
+            Composing answer…
+          </p>
+        )}
+        {showThinking && (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="inline-block size-2 animate-pulse bg-foreground" />
             Thinking…
-          </div>
+          </p>
         )}
       </div>
-      {isUser && (
-        <div className="flex size-8 shrink-0 items-center justify-center bg-muted text-foreground">
-          <User className="size-4" />
-        </div>
-      )}
     </div>
   )
 }

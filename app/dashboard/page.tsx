@@ -7,6 +7,7 @@ import {
   DocumentCard,
   type DashboardDocument,
 } from "@/components/dashboard/document-card"
+import { NewChatDialog } from "@/components/dashboard/new-chat-dialog"
 import { createClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/dal"
 
@@ -61,10 +62,20 @@ export default async function DashboardPage() {
               Upload a PDF to start chatting with it.
             </p>
           </div>
-          <Badge variant="outline" className="hidden sm:inline-flex">
-            <Sparkles className="size-3" />
-            {plan === "pro" ? "Pro plan" : "Free plan"}
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="hidden sm:inline-flex">
+              <Sparkles className="size-3" />
+              {plan === "pro" ? "Pro plan" : "Free plan"}
+            </Badge>
+            <NewChatDialog
+              documents={documents.map((d) => ({
+                id: d.id,
+                filename: d.filename,
+                status: d.status,
+                total_pages: d.total_pages,
+              }))}
+            />
+          </div>
         </div>
 
         {fetchFailed && (

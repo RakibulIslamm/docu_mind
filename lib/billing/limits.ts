@@ -2,8 +2,10 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-export const FREE_DOC_LIMIT = 3
-export const FREE_QUESTIONS_PER_MONTH = 50
+export const FREE_DOC_LIMIT = 2
+export const PRO_DOC_LIMIT = 10
+export const FREE_QUESTIONS_PER_MONTH = 10
+export const PRO_QUESTIONS_PER_MONTH = 20
 
 export type Plan = "free" | "pro"
 
@@ -19,17 +21,19 @@ export type Usage = {
   canAsk: boolean
 }
 
-function proUsage(documentCount: number): Usage {
+function proUsage(documentCount: number, questionsThisMonth: number): Usage {
+  const documentsRemaining = Math.max(0, PRO_DOC_LIMIT - documentCount)
+  const questionsRemaining = Math.max(0, PRO_QUESTIONS_PER_MONTH - questionsThisMonth)
   return {
     plan: "pro",
     documentCount,
-    questionsThisMonth: 0,
-    documentLimit: Infinity,
-    questionLimit: Infinity,
-    documentsRemaining: null,
-    questionsRemaining: null,
-    canUpload: true,
-    canAsk: true,
+    questionsThisMonth,
+    documentLimit: PRO_DOC_LIMIT,
+    questionLimit: PRO_QUESTIONS_PER_MONTH,
+    documentsRemaining,
+    questionsRemaining,
+    canUpload: documentsRemaining > 0,
+    canAsk: questionsRemaining > 0,
   }
 }
 
@@ -56,13 +60,20 @@ export async function getUserUsage(
 
   const plan: Plan = profile?.plan === "pro" ? "pro" : "free"
   if (plan === "pro") {
-    // Pro is unlimited, but still surface the actual doc count so the
-    // "N uploaded · Unlimited" badge shows the real number.
-    const { count } = await supabase
-      .from("documents")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-    return proUsage(count ?? 0)
+    const monthStart = startOfMonthISO()
+    const [{ count: docCount }, { count: questionCount }] = await Promise.all([
+      supabase
+        .from("documents")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId),
+      supabase
+        .from("messages")
+        .select("id, conversations!inner(user_id)", { count: "exact", head: true })
+        .eq("role", "user")
+        .gte("created_at", monthStart)
+        .eq("conversations.user_id", userId),
+    ])
+    return proUsage(docCount ?? 0, questionCount ?? 0)
   }
 
   const monthStart = startOfMonthISO()
@@ -106,7 +117,13 @@ export type LimitReason = "document_limit" | "question_limit"
 
 export function describeLimit(reason: LimitReason, usage: Usage): string {
   if (reason === "document_limit") {
-    return `Free plan is capped at ${usage.documentLimit} documents. Delete one or upgrade to Pro for unlimited uploads.`
+    if (usage.plan === "pro") {
+      return `Pro plan is capped at ${usage.documentLimit} documents. Delete one to upload more.`
+    }
+    return `Free plan is capped at ${usage.documentLimit} documents. Delete one or upgrade to Pro for up to ${PRO_DOC_LIMIT}.`
   }
-  return `Free plan is capped at ${usage.questionLimit} questions per month (used ${usage.questionsThisMonth}). Upgrade to Pro for unlimited.`
+  if (usage.plan === "pro") {
+    return `Pro plan is capped at ${usage.questionLimit} questions per month (used ${usage.questionsThisMonth}).`
+  }
+  return `Free plan is capped at ${usage.questionLimit} questions per month (used ${usage.questionsThisMonth}). Upgrade to Pro for up to ${PRO_QUESTIONS_PER_MONTH}.`
 }

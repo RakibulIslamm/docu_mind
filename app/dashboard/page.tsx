@@ -21,7 +21,7 @@ import { RecentDocuments } from "@/components/dashboard/recent-documents"
 import { RecentChats } from "@/components/dashboard/recent-chats"
 import { createClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/dal"
-import { getUserUsage, type Usage } from "@/lib/billing/limits"
+import { getUserUsage, PRO_DOC_LIMIT, PRO_QUESTIONS_PER_MONTH, type Usage } from "@/lib/billing/limits"
 import type { DashboardDocument } from "@/components/dashboard/document-card"
 import type { ConversationListItem } from "@/components/dashboard/conversation-list"
 import type { ChatableDocument } from "@/components/dashboard/new-chat-dialog"
@@ -121,21 +121,13 @@ export default async function DashboardOverviewPage() {
             icon={<FileText className="size-4" />}
             label="Documents"
             primary={
-              usage
-                ? usage.plan === "pro"
-                  ? `${usage.documentCount}`
-                  : `${usage.documentCount} / ${usage.documentLimit}`
-                : "—"
+              usage ? `${usage.documentCount} / ${usage.documentLimit}` : "—"
             }
             sub={
-              usage?.plan === "pro"
-                ? "Unlimited on Pro"
-                : usage
-                  ? `${usage.documentsRemaining ?? 0} remaining`
-                  : "Loading…"
+              usage ? `${usage.documentsRemaining ?? 0} remaining` : "Loading…"
             }
             progress={
-              usage && usage.plan === "free"
+              usage
                 ? Math.min(
                     100,
                     Math.round(
@@ -145,30 +137,19 @@ export default async function DashboardOverviewPage() {
                   )
                 : null
             }
-            hot={
-              usage?.plan === "free" &&
-              (usage.documentsRemaining ?? 0) <= 0
-            }
+            hot={(usage?.documentsRemaining ?? 0) <= 0}
           />
           <StatCard
             icon={<MessagesSquare className="size-4" />}
             label="Questions this month"
             primary={
-              usage
-                ? usage.plan === "pro"
-                  ? `${usage.questionsThisMonth}`
-                  : `${usage.questionsThisMonth} / ${usage.questionLimit}`
-                : "—"
+              usage ? `${usage.questionsThisMonth} / ${usage.questionLimit}` : "—"
             }
             sub={
-              usage?.plan === "pro"
-                ? "Unlimited on Pro"
-                : usage
-                  ? `${usage.questionsRemaining ?? 0} remaining`
-                  : "Loading…"
+              usage ? `${usage.questionsRemaining ?? 0} remaining` : "Loading…"
             }
             progress={
-              usage && usage.plan === "free"
+              usage
                 ? Math.min(
                     100,
                     Math.round(
@@ -179,10 +160,7 @@ export default async function DashboardOverviewPage() {
                   )
                 : null
             }
-            hot={
-              usage?.plan === "free" &&
-              (usage.questionsRemaining ?? 0) <= 0
-            }
+            hot={(usage?.questionsRemaining ?? 0) <= 0}
           />
           <PlanCard usage={usage} />
         </section>
@@ -309,8 +287,8 @@ function PlanCard({ usage }: { usage: Usage | null }) {
       <CardContent>
         <p className="mb-4 text-xs text-muted-foreground">
           {isPro
-            ? "Unlimited documents and questions."
-            : "Upgrade for unlimited documents and questions."}
+            ? `${usage?.documentLimit ?? PRO_DOC_LIMIT} documents · ${usage?.questionLimit ?? PRO_QUESTIONS_PER_MONTH} questions per month.`
+            : `Upgrade to Pro for ${PRO_DOC_LIMIT} documents and ${PRO_QUESTIONS_PER_MONTH} questions per month.`}
         </p>
         <Button
           variant={isPro ? "outline" : "default"}

@@ -1,3 +1,10 @@
+import {
+  PRO_DOC_LIMIT,
+  PRO_QUESTIONS_PER_MONTH,
+  FREE_DOC_LIMIT,
+  FREE_QUESTIONS_PER_MONTH,
+} from "@/lib/billing/limits"
+
 export type StripeEnv = {
   secretKey: string
   webhookSecret: string
@@ -51,8 +58,8 @@ export const PRO_PLAN = {
   name: "Pro",
   priceMonthly: 29,
   features: [
-    "Unlimited documents",
-    "Unlimited questions per month",
+    `${PRO_DOC_LIMIT} documents`,
+    `${PRO_QUESTIONS_PER_MONTH} questions per month`,
     "Multi-document conversations",
     "Priority model latency",
     "Cancel anytime",
@@ -63,8 +70,8 @@ export const FREE_PLAN = {
   name: "Free",
   priceMonthly: 0,
   features: [
-    "3 documents",
-    "50 questions per month",
+    `${FREE_DOC_LIMIT} documents`,
+    `${FREE_QUESTIONS_PER_MONTH} questions per month`,
     "Single & multi-document chats",
   ],
 } as const

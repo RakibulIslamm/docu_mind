@@ -71,10 +71,10 @@ export default async function ChatsPage() {
               search, or delete.
             </p>
           </div>
-          {usage && usage.plan === "free" && (
+          {usage && (
             <div className="flex items-center gap-2 border border-border bg-card px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-widest">
               <span className="size-1.5 bg-foreground" />
-              {usage.questionsThisMonth} / {usage.questionLimit} questions
+              {usage.questionsThisMonth} / {usage.questionLimit} questions · {usage.questionsRemaining ?? 0} remaining
             </div>
           )}
         </header>

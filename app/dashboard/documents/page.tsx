@@ -54,16 +54,10 @@ export default async function DocumentsPage() {
               chat with them.
             </p>
           </div>
-          {usage && usage.plan === "free" && (
+          {usage && (
             <div className="flex items-center gap-2 border border-border bg-card px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-widest">
               <span className="size-1.5 bg-foreground" />
-              {usage.documentCount} / {usage.documentLimit} used
-            </div>
-          )}
-          {usage && usage.plan === "pro" && (
-            <div className="flex items-center gap-2 border border-foreground/40 bg-card px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-widest">
-              <span className="size-1.5 bg-foreground" />
-              {usage.documentCount} uploaded · Unlimited
+              {usage.documentCount} / {usage.documentLimit} used · {usage.documentsRemaining ?? 0} remaining
             </div>
           )}
         </header>

@@ -32,6 +32,12 @@ import {
 } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
 import { getUser } from "@/lib/auth/dal"
+import {
+  FREE_DOC_LIMIT,
+  FREE_QUESTIONS_PER_MONTH,
+  PRO_DOC_LIMIT,
+  PRO_QUESTIONS_PER_MONTH,
+} from "@/lib/billing/limits"
 
 const features = [
   {
@@ -61,8 +67,8 @@ const tiers = [
     period: "forever",
     description: "Try the agent on a few documents.",
     features: [
-      "3 documents",
-      "50 questions / month",
+      `${FREE_DOC_LIMIT} documents`,
+      `${FREE_QUESTIONS_PER_MONTH} questions / month`,
       "Single-document chats",
       "Citations to section & page",
     ],
@@ -76,8 +82,8 @@ const tiers = [
     period: "per month",
     description: "For serious research and writing.",
     features: [
-      "Unlimited documents",
-      "Unlimited questions",
+      `${PRO_DOC_LIMIT} documents`,
+      `${PRO_QUESTIONS_PER_MONTH} questions / month`,
       "Multi-document conversations",
       "Priority model latency",
       "Export chats",
@@ -546,7 +552,7 @@ function Hero({ isAuthenticated }: { isAuthenticated: boolean }) {
         </div>
         {!isAuthenticated ? (
           <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground sm:text-xs">
-            No credit card required · 3 documents free
+            No credit card required · {FREE_DOC_LIMIT} documents free
           </p>
         ) : null}
       </div>

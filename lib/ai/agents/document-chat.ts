@@ -1,7 +1,7 @@
 import "server-only"
 
 import { streamText, stepCountIs, type ModelMessage } from "ai"
-import { documindModel } from "@/lib/ai/openrouter"
+import { getDocumindModel } from "@/lib/ai/openrouter"
 import { buildAgentTools, type ToolContext } from "@/lib/rag/tools"
 
 const SYSTEM_PROMPT = `You are DocuMind, an AI assistant that answers questions about uploaded documents.
@@ -74,7 +74,7 @@ The current conversation is grounded in these documents (use these IDs in tool c
 ${docList}`
 
   return streamText({
-    model: documindModel,
+    model: getDocumindModel(),
     system,
     messages,
     tools: buildAgentTools(context),

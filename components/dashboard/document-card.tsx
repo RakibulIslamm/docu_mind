@@ -103,39 +103,51 @@ export function DocumentCard({ doc: initial }: { doc: DashboardDocument }) {
           <div className="flex size-10 items-center justify-center bg-foreground/5 text-foreground">
             <FileText className="size-5" />
           </div>
-          <DocumentMenu
-            disabled={isPending}
-            onReprocess={() =>
-              startTransition(async () => {
-                try {
-                  const r = await reprocessDocument(doc.id)
-                  if (r.ok) {
-                    toast.success("Reprocessing…")
-                    setDoc((prev) => ({ ...prev, status: "pending" }))
-                  } else {
-                    toast.error(r.error)
+          {/* The whole card is wrapped in a <Link> below, so clicks on the
+              menu trigger bubble up and navigate to the chat page. Stop the
+              pointer + click events here so the menu opens instead. The
+              menu items themselves are portaled outside the Link. */}
+          <div
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+            }}
+          >
+            <DocumentMenu
+              disabled={isPending}
+              onReprocess={() =>
+                startTransition(async () => {
+                  try {
+                    const r = await reprocessDocument(doc.id)
+                    if (r.ok) {
+                      toast.success("Reprocessing…")
+                      setDoc((prev) => ({ ...prev, status: "pending" }))
+                    } else {
+                      toast.error(r.error)
+                    }
+                  } catch (e) {
+                    toast.error(friendlyError(e))
                   }
-                } catch (e) {
-                  toast.error(friendlyError(e))
-                }
-              })
-            }
-            onDelete={() =>
-              startTransition(async () => {
-                try {
-                  const r = await deleteDocument(doc.id)
-                  if (r.ok) {
-                    toast.success("Deleted")
-                    router.refresh()
-                  } else {
-                    toast.error(r.error ?? "Delete failed")
+                })
+              }
+              onDelete={() =>
+                startTransition(async () => {
+                  try {
+                    const r = await deleteDocument(doc.id)
+                    if (r.ok) {
+                      toast.success("Deleted")
+                      router.refresh()
+                    } else {
+                      toast.error(r.error ?? "Delete failed")
+                    }
+                  } catch (e) {
+                    toast.error(friendlyError(e))
                   }
-                } catch (e) {
-                  toast.error(friendlyError(e))
-                }
-              })
-            }
-          />
+                })
+              }
+            />
+          </div>
         </div>
         <CardTitle className="mt-4 line-clamp-2 normal-case tracking-normal">
           {doc.filename}

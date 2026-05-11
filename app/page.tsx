@@ -31,6 +31,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
+import { getUser } from "@/lib/auth/dal"
 
 const features = [
   {
@@ -110,12 +111,14 @@ const faqs = [
   },
 ]
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const user = await getUser()
+  const isAuthenticated = Boolean(user)
   return (
     <div className="flex flex-1 flex-col">
-      <SiteHeader />
+      <SiteHeader isAuthenticated={isAuthenticated} />
       <main className="flex flex-1 flex-col">
-        <Hero />
+        <Hero isAuthenticated={isAuthenticated} />
         <ProductDemo />
         <VsVectors />
         <Features />
@@ -128,7 +131,7 @@ export default function LandingPage() {
   )
 }
 
-function SiteHeader() {
+function SiteHeader({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
@@ -155,21 +158,34 @@ function SiteHeader() {
           </a>
         </nav>
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            nativeButton={false}
-            render={<Link href="/login" />}
-          >
-            Sign in
-          </Button>
-          <Button
-            size="sm"
-            nativeButton={false}
-            render={<Link href="/login" />}
-          >
-            Get started
-          </Button>
+          {isAuthenticated ? (
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={<Link href="/dashboard" />}
+            >
+              Open dashboard
+              <ArrowRight />
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                nativeButton={false}
+                render={<Link href="/login" />}
+              >
+                Sign in
+              </Button>
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={<Link href="/login" />}
+              >
+                Get started
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </header>
@@ -392,7 +408,7 @@ function VsVectors() {
   )
 }
 
-function Hero() {
+function Hero({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <section className="border-b border-border/60">
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-8 px-6 py-24 text-center md:py-32">
@@ -409,8 +425,12 @@ function Hero() {
           answers with real page citations.
         </p>
         <div className="flex flex-col items-center gap-3 sm:flex-row">
-          <Button size="lg" nativeButton={false} render={<Link href="/login" />}>
-            Start free
+          <Button
+            size="lg"
+            nativeButton={false}
+            render={<Link href={isAuthenticated ? "/dashboard" : "/login"} />}
+          >
+            {isAuthenticated ? "Open dashboard" : "Start free"}
             <ArrowRight />
           </Button>
           <Button
@@ -422,9 +442,11 @@ function Hero() {
             See how it works
           </Button>
         </div>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">
-          No credit card required · 3 documents free
-        </p>
+        {!isAuthenticated ? (
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">
+            No credit card required · 3 documents free
+          </p>
+        ) : null}
       </div>
     </section>
   )

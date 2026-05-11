@@ -1,26 +1,35 @@
-import { NextResponse } from "next/server"
-import { getUser } from "@/lib/auth/dal"
+import { NextResponse, type NextRequest } from "next/server"
+import { readStripeEnv, STRIPE_SETUP_MESSAGE } from "@/lib/stripe/env"
+import { createStripeClient } from "@/lib/stripe/client"
 import { createClient } from "@/lib/supabase/server"
-import { getAppUrl, getStripe } from "@/lib/billing/stripe"
 
-export async function POST() {
-  const user = await getUser()
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+/**
+ * POST /api/stripe/portal
+ * Redirects the user to a Stripe Customer Portal session for managing
+ * their subscription (cancel, update payment method, view invoices).
+ */
+export async function POST(request: NextRequest) {
+  const { origin } = new URL(request.url)
 
-  let stripe, appUrl
-  try {
-    stripe = getStripe()
-    appUrl = getAppUrl()
-  } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Stripe not configured." },
-      { status: 500 },
+  const cfg = readStripeEnv()
+  if (!cfg.configured) {
+    return NextResponse.redirect(
+      new URL(
+        `/dashboard/billing?stripe_error=${encodeURIComponent(STRIPE_SETUP_MESSAGE)}`,
+        origin,
+      ),
+      { status: 303 },
     )
   }
 
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.redirect(new URL("/login", origin), { status: 303 })
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("stripe_customer_id")
@@ -28,21 +37,17 @@ export async function POST() {
     .maybeSingle()
 
   if (!profile?.stripe_customer_id) {
-    return NextResponse.json(
-      { error: "No Stripe customer on file. Subscribe first." },
-      { status: 400 },
+    return NextResponse.redirect(
+      new URL("/dashboard/billing?stripe_error=no_customer", origin),
+      { status: 303 },
     )
   }
 
-  try {
-    const session = await stripe.billingPortal.sessions.create({
-      customer: profile.stripe_customer_id,
-      return_url: `${appUrl}/dashboard/billing`,
-    })
-    return NextResponse.json({ url: session.url })
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Portal failed."
-    console.error("[stripe/portal]", msg)
-    return NextResponse.json({ error: msg }, { status: 500 })
-  }
+  const stripe = createStripeClient()
+  const session = await stripe.billingPortal.sessions.create({
+    customer: profile.stripe_customer_id,
+    return_url: `${origin}/dashboard/billing`,
+  })
+
+  return NextResponse.redirect(session.url, { status: 303 })
 }

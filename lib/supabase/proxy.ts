@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { readSupabaseEnv } from "./env"
 
 const PROTECTED_PREFIXES = ["/dashboard"]
 const AUTH_ROUTES = new Set(["/login"])
@@ -15,14 +16,13 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute = AUTH_ROUTES.has(pathname)
   if (!isProtected && !isAuthRoute) return supabaseResponse
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !anonKey) {
+  const cfg = readSupabaseEnv()
+  if (!cfg.configured) {
     // Misconfigured env — let the page render its own fallback rather than 500.
     return supabaseResponse
   }
 
-  const supabase = createServerClient(url, anonKey, {
+  const supabase = createServerClient(cfg.env.url, cfg.env.anonKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll()

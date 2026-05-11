@@ -1,7 +1,7 @@
 import "server-only"
 
 import { generateText } from "ai"
-import { documindModel } from "@/lib/ai/openrouter"
+import { getDocumindModel } from "@/lib/ai/openrouter"
 import type { ExtractedPage } from "./extract-pages"
 import type { SectionOutline } from "./detect-structure"
 
@@ -71,7 +71,7 @@ async function summarizeSection(
 
   try {
     const { text } = await generateText({
-      model: documindModel,
+      model: getDocumindModel(),
       system:
         "You write one-sentence summaries of document sections. Be concrete and specific. Never start with 'This section'. Maximum 25 words. Output the sentence only — no preamble, no quotes.",
       prompt: `Section title: ${section.title}\n\nSection text:\n${trimmed}\n\nOne-sentence summary:`,

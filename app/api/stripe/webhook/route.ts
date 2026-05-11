@@ -1,137 +1,182 @@
-import { NextResponse } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 import type Stripe from "stripe"
+import { createStripeClient } from "@/lib/stripe/client"
+import { readStripeEnv } from "@/lib/stripe/env"
 import {
-  getStripe,
-  getWebhookSecret,
-  planFromSubscriptionStatus,
-} from "@/lib/billing/stripe"
-import { createServiceClient } from "@/lib/supabase/server"
+  extractSubscriptionState,
+  type SubscriptionState,
+} from "@/lib/stripe/subscription"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 // Stripe webhooks must read the raw request body to verify the signature.
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-export async function POST(req: Request) {
-  let stripe: Stripe
-  let secret: string
-  try {
-    stripe = getStripe()
-    secret = getWebhookSecret()
-  } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Stripe not configured." },
-      { status: 500 },
-    )
+/**
+ * POST /api/stripe/webhook
+ *
+ * Stripe POSTs subscription lifecycle events here. We verify the signature
+ * with the webhook secret and use the service-role Supabase client to update
+ * `profiles` (the webhook isn't authenticated as a Supabase user).
+ *
+ * Events handled:
+ *   - checkout.session.completed       → write full SubscriptionState + customer id
+ *   - customer.subscription.created    → SubscriptionState tracks the subscription
+ *   - customer.subscription.updated    → SubscriptionState tracks the subscription
+ *   - customer.subscription.deleted    → plan = 'free', clear period_end
+ */
+export async function POST(request: NextRequest) {
+  const cfg = readStripeEnv()
+  if (!cfg.configured) {
+    return new Response("Stripe is not configured.", { status: 500 })
   }
 
-  const signature = req.headers.get("stripe-signature")
-  if (!signature) {
-    return NextResponse.json({ error: "Missing stripe-signature" }, { status: 400 })
+  const sig = request.headers.get("stripe-signature")
+  if (!sig) {
+    return new Response("Missing stripe-signature header.", { status: 400 })
   }
 
-  const rawBody = await req.text()
+  // Webhook signing requires the *raw* request body — never JSON.parse first.
+  const rawBody = await request.text()
+  const stripe = createStripeClient()
 
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, secret)
+    event = stripe.webhooks.constructEvent(rawBody, sig, cfg.env.webhookSecret)
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Bad signature"
-    console.error("[stripe/webhook] signature verification failed:", msg)
-    return NextResponse.json({ error: `Bad signature: ${msg}` }, { status: 400 })
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error("[stripe] webhook signature failed:", msg)
+    return new Response(`Webhook signature failed: ${msg}`, { status: 400 })
   }
 
-  const supabase = createServiceClient()
+  const admin = createAdminClient()
 
   try {
     switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session
-        const userId =
-          (session.metadata?.user_id as string | undefined) ??
-          (session.client_reference_id as string | undefined)
-        if (!userId) {
-          console.warn("[stripe/webhook] checkout.session.completed without user_id")
-          break
-        }
-        const customerId =
-          typeof session.customer === "string"
-            ? session.customer
-            : (session.customer?.id ?? null)
-        const subscriptionId =
-          typeof session.subscription === "string"
-            ? session.subscription
-            : (session.subscription?.id ?? null)
-
-        await supabase
-          .from("profiles")
-          .update({
-            plan: "pro",
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscriptionId,
-          })
-          .eq("id", userId)
+      case "checkout.session.completed":
+        await handleCheckoutCompleted(event.data.object, admin, stripe)
         break
-      }
-
       case "customer.subscription.updated":
-      case "customer.subscription.created": {
-        const sub = event.data.object as Stripe.Subscription
-        const userId = await resolveUserId(supabase, sub)
-        if (!userId) break
-        await supabase
-          .from("profiles")
-          .update({
-            plan: planFromSubscriptionStatus(sub.status),
-            stripe_customer_id:
-              typeof sub.customer === "string" ? sub.customer : sub.customer.id,
-            stripe_subscription_id: sub.id,
-          })
-          .eq("id", userId)
+      case "customer.subscription.created":
+        await handleSubscriptionChange(event.data.object, admin)
         break
-      }
-
-      case "customer.subscription.deleted": {
-        const sub = event.data.object as Stripe.Subscription
-        const userId = await resolveUserId(supabase, sub)
-        if (!userId) break
-        await supabase
-          .from("profiles")
-          .update({
-            plan: "free",
-            stripe_subscription_id: null,
-          })
-          .eq("id", userId)
+      case "customer.subscription.deleted":
+        await handleSubscriptionDeleted(event.data.object, admin)
         break
-      }
-
       default:
-        // Ignore other events.
+        // Other events (invoice.paid etc.) are accepted but no-op.
         break
     }
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Handler failed"
-    console.error(`[stripe/webhook] ${event.type} handler failed:`, msg)
-    // Returning 500 makes Stripe retry. Only do that for transient errors —
-    // for malformed events, prefer to log and 200.
-    return NextResponse.json({ error: msg }, { status: 500 })
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error(`[stripe] handler failed for ${event.type}:`, msg)
+    // Return 500 so Stripe retries.
+    return new Response(`Handler failed: ${msg}`, { status: 500 })
   }
 
   return NextResponse.json({ received: true })
 }
 
-async function resolveUserId(
-  supabase: ReturnType<typeof createServiceClient>,
-  sub: Stripe.Subscription,
-): Promise<string | null> {
-  const metaUser = sub.metadata?.user_id
-  if (metaUser) return metaUser
+async function handleCheckoutCompleted(
+  session: Stripe.Checkout.Session,
+  admin: ReturnType<typeof createAdminClient>,
+  stripe: Stripe,
+) {
+  const userId =
+    session.client_reference_id ??
+    (typeof session.metadata?.userId === "string"
+      ? session.metadata.userId
+      : null)
+  if (!userId) {
+    console.error("[stripe] checkout.session.completed missing userId reference")
+    return
+  }
 
   const customerId =
-    typeof sub.customer === "string" ? sub.customer : sub.customer.id
-  const { data } = await supabase
+    typeof session.customer === "string"
+      ? session.customer
+      : session.customer?.id
+  if (!customerId) {
+    console.error("[stripe] checkout.session.completed missing customer")
+    return
+  }
+
+  // Pull the subscription to read its status — checkout sometimes returns
+  // before the subscription is fully provisioned, so default to 'pro'
+  // optimistically when retrieve fails.
+  let state = optimisticState()
+  if (session.subscription) {
+    const subscriptionId =
+      typeof session.subscription === "string"
+        ? session.subscription
+        : session.subscription.id
+    try {
+      const sub = await stripe.subscriptions.retrieve(subscriptionId)
+      state = extractSubscriptionState(sub)
+    } catch (e) {
+      console.warn(
+        "[stripe] could not retrieve subscription, defaulting to pro:",
+        e,
+      )
+    }
+  }
+
+  const { error } = await admin
     .from("profiles")
-    .select("id")
+    .update({ ...state, stripe_customer_id: customerId })
+    .eq("id", userId)
+  if (error) {
+    throw new Error(`profiles update failed: ${error.message}`)
+  }
+}
+
+async function handleSubscriptionChange(
+  subscription: Stripe.Subscription,
+  admin: ReturnType<typeof createAdminClient>,
+) {
+  const customerId =
+    typeof subscription.customer === "string"
+      ? subscription.customer
+      : subscription.customer.id
+
+  const { error } = await admin
+    .from("profiles")
+    .update(extractSubscriptionState(subscription))
     .eq("stripe_customer_id", customerId)
-    .maybeSingle()
-  return data?.id ?? null
+  if (error) {
+    throw new Error(`profiles update failed: ${error.message}`)
+  }
+}
+
+async function handleSubscriptionDeleted(
+  subscription: Stripe.Subscription,
+  admin: ReturnType<typeof createAdminClient>,
+) {
+  const customerId =
+    typeof subscription.customer === "string"
+      ? subscription.customer
+      : subscription.customer.id
+
+  const { error } = await admin
+    .from("profiles")
+    .update({
+      plan: "free",
+      subscription_status: subscription.status, // typically 'canceled'
+      cancel_at_period_end: false,
+      current_period_end: null,
+    })
+    .eq("stripe_customer_id", customerId)
+  if (error) {
+    throw new Error(`profiles update failed: ${error.message}`)
+  }
+}
+
+/** Optimistic default when retrieve fails on checkout.session.completed. */
+function optimisticState(): SubscriptionState {
+  return {
+    plan: "pro",
+    subscription_status: "active",
+    cancel_at_period_end: false,
+    current_period_end: null,
+  }
 }

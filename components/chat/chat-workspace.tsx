@@ -200,7 +200,7 @@ export function ChatWorkspace({
           </div>
         </div>
 
-        {liveTool && (
+        {/* {liveTool && (
           <div className="border-t border-border/60 bg-muted/40 px-4 py-2 sm:px-6">
             <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
               <ToolPill call={liveTool} compact={false} />
@@ -216,7 +216,7 @@ export function ChatWorkspace({
               </Button>
             </div>
           </div>
-        )}
+        )} */}
 
         <Composer
           value={input}

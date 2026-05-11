@@ -1,6 +1,6 @@
 import "server-only"
 
-import { createServiceClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { extractPages } from "./extract-pages"
 import { detectStructure } from "./detect-structure"
 import { buildSections } from "./build-sections"
@@ -14,7 +14,7 @@ type ProcessResult =
  * for the doc before re-inserting, so it's safe to retry.
  */
 export async function processDocument(documentId: string): Promise<ProcessResult> {
-  const supabase = createServiceClient()
+  const supabase = createAdminClient()
 
   const { data: doc, error: fetchErr } = await supabase
     .from("documents")
@@ -128,7 +128,7 @@ export async function processDocument(documentId: string): Promise<ProcessResult
 async function insertInChunks(
   table: "document_pages" | "document_sections",
   rows: Record<string, unknown>[],
-  supabase: ReturnType<typeof createServiceClient>,
+  supabase: ReturnType<typeof createAdminClient>,
 ) {
   const CHUNK = 100
   for (let i = 0; i < rows.length; i += CHUNK) {

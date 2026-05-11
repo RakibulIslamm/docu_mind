@@ -2,7 +2,7 @@ import "server-only"
 
 import { generateObject, NoObjectGeneratedError } from "ai"
 import { z } from "zod"
-import { documindModel } from "@/lib/ai/openrouter"
+import { getDocumindModel } from "@/lib/ai/openrouter"
 import type { ExtractedPage } from "./extract-pages"
 
 export const SectionOutlineItem = z.object({
@@ -90,7 +90,7 @@ Return the outline.`
 
   try {
     const { object } = await generateObject({
-      model: documindModel,
+      model: getDocumindModel(),
       schema: StructureSchema,
       system: SYSTEM_PROMPT,
       prompt: userPrompt,

@@ -135,27 +135,25 @@ export function ChatWorkspace({
   }
 
   return (
-    <div className="grid flex-1 grid-cols-1 lg:grid-cols-[260px_1fr] xl:grid-cols-[260px_1fr_340px]">
+    <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[260px_minmax(0,1fr)_340px]">
       <UpgradeDialog
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
         reason="question_limit"
       />
-      {/* LEFT: Outline */}
-      <aside className="hidden border-r border-border/60 bg-muted/20 lg:block">
-        <div className="sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
-          <OutlineTree
-            outline={outline}
-            activeSectionId={activeSectionId}
-            onSectionClick={(node) => setActiveSectionId(node.sectionId)}
-          />
-        </div>
+      {/* LEFT: Outline (xl+) */}
+      <aside className="hidden h-full min-h-0 overflow-y-auto border-r border-border/60 bg-muted/20 xl:block">
+        <OutlineTree
+          outline={outline}
+          activeSectionId={activeSectionId}
+          onSectionClick={(node) => setActiveSectionId(node.sectionId)}
+        />
       </aside>
 
       {/* CENTER: Chat */}
-      <section className="flex h-[calc(100vh-3.5rem)] min-w-0 flex-col">
-        {/* Mobile-only outline trigger */}
-        <div className="flex shrink-0 items-center gap-2 border-b border-border/60 bg-background px-4 py-2 lg:hidden">
+      <section className="flex h-full min-h-0 min-w-0 flex-col">
+        {/* Outline trigger when the xl column is hidden */}
+        <div className="flex shrink-0 items-center gap-2 border-b border-border/60 bg-background px-4 py-2 xl:hidden">
           <Sheet>
             <SheetTrigger
               render={
@@ -169,7 +167,7 @@ export function ChatWorkspace({
               <SheetHeader className="px-4 py-3">
                 <SheetTitle>Document outline</SheetTitle>
               </SheetHeader>
-              <div className="h-[calc(100vh-4rem)] overflow-y-auto pb-4">
+              <div className="h-[calc(100dvh-4rem)] overflow-y-auto pb-4">
                 <OutlineTree
                   outline={outline}
                   activeSectionId={activeSectionId}
@@ -180,7 +178,7 @@ export function ChatWorkspace({
           </Sheet>
         </div>
         <div ref={transcriptRef} className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-3xl px-6 py-10">
+          <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
             {messages.length === 0 ? (
               <EmptyState
                 outline={outline}
@@ -203,7 +201,7 @@ export function ChatWorkspace({
         </div>
 
         {liveTool && (
-          <div className="border-t border-border/60 bg-muted/40 px-6 py-2">
+          <div className="border-t border-border/60 bg-muted/40 px-4 py-2 sm:px-6">
             <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
               <ToolPill call={liveTool} compact={false} />
               <Button
@@ -230,16 +228,14 @@ export function ChatWorkspace({
         />
       </section>
 
-      {/* RIGHT: Reasoning */}
+      {/* RIGHT: Reasoning (toggleable below xl, always-on at xl+) */}
       <aside
         className={cn(
-          "border-l border-border/60 bg-muted/20",
+          "h-full min-h-0 overflow-hidden border-l border-border/60 bg-muted/20",
           showReasoning ? "block" : "hidden xl:block",
         )}
       >
-        <div className="sticky top-14 h-[calc(100vh-3.5rem)]">
-          <ReasoningPanel messages={messages} />
-        </div>
+        <ReasoningPanel messages={messages} />
       </aside>
     </div>
   )

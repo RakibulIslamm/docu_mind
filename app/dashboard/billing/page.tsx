@@ -1,7 +1,6 @@
-import Link from "next/link"
-import { ArrowLeft, Check, Crown } from "lucide-react"
+import type { Metadata } from "next"
+import { Check, Crown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -9,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { DashboardHeader } from "@/components/site/dashboard-header"
 import {
   ManageSubscriptionButton,
   StartCheckoutButton,
@@ -17,6 +15,8 @@ import {
 import { requireUser } from "@/lib/auth/dal"
 import { createClient } from "@/lib/supabase/server"
 import { getUserUsage } from "@/lib/billing/limits"
+
+export const metadata: Metadata = { title: "Billing" }
 
 const PRO_PERKS = [
   "Unlimited documents",
@@ -38,30 +38,10 @@ export default async function BillingPage({
   const justSubscribed = sp.checkout === "success"
   const cancelled = sp.checkout === "cancelled"
 
-  const avatarUrl =
-    (user.user_metadata?.avatar_url as string | undefined) ?? null
-
   return (
-    <div className="flex flex-1 flex-col">
-      <DashboardHeader
-        email={user.email}
-        avatarUrl={avatarUrl}
-        plan={usage.plan}
-      />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
-        <div className="mb-8">
-          <Button
-            variant="ghost"
-            size="sm"
-            nativeButton={false}
-            render={<Link href="/dashboard" />}
-          >
-            <ArrowLeft />
-            Back to dashboard
-          </Button>
-        </div>
-
-        <h1 className="font-heading text-4xl font-semibold tracking-tight">
+    <div className="flex-1 overflow-y-auto">
+      <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-10">
+        <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
           Billing
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -72,8 +52,8 @@ export default async function BillingPage({
           <div className="mt-6 flex items-start gap-3 border border-foreground/30 bg-foreground/5 px-4 py-3 text-sm">
             <Check className="mt-0.5 size-4 shrink-0" />
             <p>
-              You're on Pro. Your subscription is active — refresh in a few
-              seconds if your plan badge hasn't updated.
+              You&rsquo;re on Pro. Your subscription is active — refresh in a
+              few seconds if your plan badge hasn&rsquo;t updated.
             </p>
           </div>
         )}
@@ -108,7 +88,7 @@ export default async function BillingPage({
                 </li>
                 <li className="flex items-center gap-3">
                   <Check className="size-4" />
-                  Single & multi-document chats
+                  Single &amp; multi-document chats
                 </li>
               </ul>
               {usage.plan === "free" && (
@@ -160,9 +140,10 @@ export default async function BillingPage({
         </div>
 
         <p className="mt-10 text-xs text-muted-foreground">
-          Payments are processed securely by Stripe. We never see or store your card details.
+          Payments are processed securely by Stripe. We never see or store your
+          card details.
         </p>
-      </main>
+      </div>
     </div>
   )
 }

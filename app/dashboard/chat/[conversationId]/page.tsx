@@ -1,10 +1,6 @@
 import { notFound } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { ChatHeaderActions } from "@/components/chat/chat-header-actions"
 import { ChatWorkspace } from "@/components/chat/chat-workspace"
-import { ThemeToggle } from "@/components/site/theme-toggle"
 import { requireUser } from "@/lib/auth/dal"
 import { createClient } from "@/lib/supabase/server"
 import type { OutlineNode, OutlineDocument } from "@/components/chat/outline-tree"
@@ -101,20 +97,13 @@ export default async function ChatPage({
     }))
 
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border/60 bg-background/80 px-4 backdrop-blur">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Back to documents"
-          nativeButton={false}
-          render={<Link href="/dashboard" />}
-        >
-          <ArrowLeft />
-        </Button>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border/60 bg-background/80 px-4 backdrop-blur sm:px-6">
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <h1 className="truncate text-sm font-semibold">{convo.title}</h1>
-          <span className="hidden text-xs uppercase tracking-widest text-muted-foreground sm:inline">
+          <h1 className="truncate text-sm font-semibold" title={convo.title ?? undefined}>
+            {convo.title ?? "Untitled chat"}
+          </h1>
+          <span className="hidden shrink-0 text-[0.65rem] uppercase tracking-widest text-muted-foreground sm:inline">
             · {docs.length} doc{docs.length === 1 ? "" : "s"}
           </span>
         </div>
@@ -122,7 +111,6 @@ export default async function ChatPage({
           conversationId={convo.id}
           title={convo.title ?? "this chat"}
         />
-        <ThemeToggle />
       </header>
       <ChatWorkspace
         conversationId={convo.id}

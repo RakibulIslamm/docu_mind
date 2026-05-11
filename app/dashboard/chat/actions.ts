@@ -94,5 +94,6 @@ export async function deleteConversation(
 
   // messages cascade-delete via FK on conversation_id.
   revalidatePath("/dashboard")
+  revalidatePath("/dashboard/chats")
   return { ok: true }
 }

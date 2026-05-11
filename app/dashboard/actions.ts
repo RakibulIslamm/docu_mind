@@ -87,6 +87,7 @@ export async function uploadDocument(formData: FormData): Promise<UploadResult> 
   })
 
   revalidatePath("/dashboard")
+  revalidatePath("/dashboard/documents")
   return { ok: true, documentId: doc.id, filename: doc.filename }
 }
 
@@ -115,6 +116,7 @@ export async function reprocessDocument(documentId: string): Promise<UploadResul
   })
 
   revalidatePath("/dashboard")
+  revalidatePath("/dashboard/documents")
   return { ok: true, documentId: doc.id, filename: doc.filename }
 }
 
@@ -137,5 +139,6 @@ export async function deleteDocument(documentId: string): Promise<{ ok: boolean;
   if (error) return { ok: false, error: error.message }
 
   revalidatePath("/dashboard")
+  revalidatePath("/dashboard/documents")
   return { ok: true }
 }

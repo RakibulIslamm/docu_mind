@@ -21,10 +21,11 @@ export type PersistedMessage = {
 type Props = {
   messages: UIMessage[]
   isStreaming: boolean
+  isPending?: boolean
   onCitationClick?: (citation: Citation) => void
 }
 
-export function MessageList({ messages, isStreaming, onCitationClick }: Props) {
+export function MessageList({ messages, isStreaming, isPending, onCitationClick }: Props) {
   return (
     <div className="flex flex-col gap-8">
       {messages.map((m, i) => (
@@ -36,6 +37,17 @@ export function MessageList({ messages, isStreaming, onCitationClick }: Props) {
           onCitationClick={onCitationClick}
         />
       ))}
+      {isPending && (
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center bg-foreground text-background">
+            <Bot className="size-3.5" />
+          </div>
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="inline-block size-2 animate-pulse bg-foreground" />
+            Thinking…
+          </p>
+        </div>
+      )}
     </div>
   )
 }

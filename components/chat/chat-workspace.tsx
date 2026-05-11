@@ -11,10 +11,9 @@ import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, type UIMessage } from "ai"
 import {
   AlertTriangle,
-  CornerDownLeft,
+  Send,
   FileText,
   ListTree,
-  Loader2,
   PanelRightClose,
   PanelRightOpen,
   Sparkles,
@@ -70,6 +69,7 @@ export function ChatWorkspace({
 }: Props) {
   const [input, setInput] = useState("")
   const [showReasoning, setShowReasoning] = useState(false)
+  const [mobileReasoningOpen, setMobileReasoningOpen] = useState(false)
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null)
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const transcriptRef = useRef<HTMLDivElement>(null)
@@ -206,6 +206,7 @@ export function ChatWorkspace({
               <MessageList
                 messages={messages}
                 isStreaming={isStreaming}
+                isPending={isStreaming && messages.at(-1)?.role === "user"}
                 onCitationClick={handleCitationClick}
               />
             )}
@@ -239,22 +240,31 @@ export function ChatWorkspace({
           value={input}
           onChange={setInput}
           onSend={handleSend}
+          onStop={stop}
           isStreaming={isStreaming}
           disabled={aiDisabled}
           showReasoning={showReasoning}
           onToggleReasoning={() => setShowReasoning((v) => !v)}
+          onOpenMobileReasoning={() => setMobileReasoningOpen(true)}
         />
       </section>
 
-      {/* RIGHT: Reasoning (toggleable below xl, always-on at xl+) */}
-      <aside
-        className={cn(
-          "h-full min-h-0 overflow-hidden border-l border-border/60 bg-muted/20",
-          showReasoning ? "block" : "hidden xl:block",
-        )}
-      >
+      {/* RIGHT: Reasoning inline panel — xl+ only */}
+      <aside className="hidden xl:block h-full min-h-0 overflow-hidden border-l border-border/60 bg-muted/20">
         <ReasoningPanel messages={messages} />
       </aside>
+
+      {/* Mobile reasoning sheet */}
+      <Sheet open={mobileReasoningOpen} onOpenChange={setMobileReasoningOpen}>
+        <SheetContent side="right" className="w-[85vw] max-w-xs p-0">
+          <SheetHeader className="border-b border-border/60 px-4 py-3">
+            <SheetTitle>Agent reasoning</SheetTitle>
+          </SheetHeader>
+          <div className="h-[calc(100dvh-4rem)] overflow-y-auto">
+            <ReasoningPanel messages={messages} />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
@@ -263,18 +273,22 @@ function Composer({
   value,
   onChange,
   onSend,
+  onStop,
   isStreaming,
   disabled = false,
   showReasoning,
   onToggleReasoning,
+  onOpenMobileReasoning,
 }: {
   value: string
   onChange: (v: string) => void
   onSend: (v: string) => void
+  onStop: () => void
   isStreaming: boolean
   disabled?: boolean
   showReasoning: boolean
   onToggleReasoning: () => void
+  onOpenMobileReasoning: () => void
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
 
@@ -291,7 +305,7 @@ function Composer({
 
   return (
     <div className="border-t border-border/60 bg-background">
-      <div className="mx-auto w-full max-w-3xl px-6 py-4">
+      <div className="mx-auto w-full max-w-3xl px-3 py-3 sm:px-6 sm:py-4">
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -317,27 +331,48 @@ function Composer({
             className="min-h-9 resize-none border-0 bg-transparent px-2 py-2 text-sm leading-relaxed shadow-none focus-visible:ring-0"
             disabled={isStreaming || disabled}
           />
-          <Button
-            type="submit"
-            size="sm"
-            disabled={!canSend}
-            aria-label="Send message"
-          >
-            {isStreaming ? <Loader2 className="animate-spin" /> : <CornerDownLeft />}
-            Send
-          </Button>
+          {isStreaming ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={onStop}
+              aria-label="Stop generating"
+            >
+              <Square className="size-3.5 fill-current" />
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              size="sm"
+              disabled={!canSend}
+              aria-label="Send message"
+            >
+              <Send className="size-3.5" />
+            </Button>
+          )}
         </form>
         <div className="mt-2 flex items-center justify-between">
-          <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+          <p className="hidden text-[0.65rem] uppercase tracking-widest text-muted-foreground sm:block">
             Enter to send · Shift+Enter for newline
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={onOpenMobileReasoning}
+              className="xl:hidden"
+            >
+              <PanelRightOpen />
+              Reasoning
+            </Button>
             <Button
               type="button"
               variant="ghost"
               size="xs"
               onClick={onToggleReasoning}
-              className="xl:hidden"
+              className="hidden xl:flex"
             >
               {showReasoning ? <PanelRightClose /> : <PanelRightOpen />}
               {showReasoning ? "Hide reasoning" : "Show reasoning"}
@@ -359,12 +394,12 @@ function EmptyState({
   disabled: boolean
 }) {
   return (
-    <div className="flex flex-col items-center gap-8 py-12 text-center">
+    <div className="flex flex-col items-center gap-6 py-8 text-center sm:gap-8 sm:py-12">
       <div className="flex size-12 items-center justify-center bg-foreground text-background">
         <Sparkles className="size-5" />
       </div>
       <div className="space-y-2">
-        <h2 className="font-heading text-3xl font-semibold tracking-tight">
+        <h2 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
           Ask anything
         </h2>
         <p className="max-w-md text-sm text-muted-foreground">

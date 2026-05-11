@@ -2,10 +2,15 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-export const FREE_DOC_LIMIT = 2
-export const PRO_DOC_LIMIT = 10
-export const FREE_QUESTIONS_PER_MONTH = 10
-export const PRO_QUESTIONS_PER_MONTH = 20
+function envInt(key: string, fallback: number): number {
+  const n = parseInt(process.env[key] ?? "", 10)
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+
+export const FREE_DOC_LIMIT = envInt("FREE_DOC_LIMIT", 2)
+export const PRO_DOC_LIMIT = envInt("PRO_DOC_LIMIT", 10)
+export const FREE_QUESTIONS_PER_MONTH = envInt("FREE_QUESTIONS_PER_MONTH", 10)
+export const PRO_QUESTIONS_PER_MONTH = envInt("PRO_QUESTIONS_PER_MONTH", 50)
 
 export type Plan = "free" | "pro"
 

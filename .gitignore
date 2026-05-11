@@ -40,3 +40,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 example
+
+# compact-pro (regenerable agent context — local only, do not commit)
+/.compact-pro/
+/CLAUDE.md
+/AGENTS.md

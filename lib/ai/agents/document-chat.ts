@@ -61,6 +61,7 @@ export type AgentRunOptions = {
   messages: ModelMessage[]
   documents: Array<{ id: string; filename: string; totalPages: number | null }>
   rollingSummary?: string | null
+  wasInterrupted?: boolean
 }
 
 export function runDocumentChatAgent({
@@ -68,6 +69,7 @@ export function runDocumentChatAgent({
   messages,
   documents,
   rollingSummary,
+  wasInterrupted,
 }: AgentRunOptions) {
   const docList = documents
     .map(
@@ -80,10 +82,14 @@ export function runDocumentChatAgent({
     ? `\n\nPRIOR CONVERSATION CONTEXT (summary of earlier turns — treat as authoritative background, do NOT re-derive what's already established here):\n${rollingSummary}\n`
     : ""
 
+  const resumeBlock = wasInterrupted
+    ? `\n\nIMPORTANT — RESUME MODE: The previous assistant turn was INTERRUPTED by the user pressing Stop before it finished. If the new user turn asks to "continue", says "go on", or otherwise signals to keep going, you MUST resume from exactly where the previous response left off. Do NOT restart, do NOT re-open with a new title, do NOT call get_document_outline again, do NOT repeat sections you already produced. Pick up at the next unwritten sentence/section and proceed forward only.\n`
+    : ""
+
   const system = `${SYSTEM_PROMPT}
 
 The current conversation is grounded in these documents (use these IDs in tool calls):
-${docList}${summaryBlock}`
+${docList}${summaryBlock}${resumeBlock}`
 
   return streamText({
     model: getDocumindModel(),

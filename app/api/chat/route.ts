@@ -105,6 +105,19 @@ export async function POST(req: Request) {
     )
   }
 
+  // Detect if the previous assistant turn was halted by the user pressing
+  // Stop. When true, the agent gets a system-prompt note to resume rather
+  // than restart from its standard PROCESS.
+  const { data: lastAssistant } = await supabase
+    .from("messages")
+    .select("stopped")
+    .eq("conversation_id", conversationId)
+    .eq("role", "assistant")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const wasInterrupted = lastAssistant?.stopped === true
+
   // useChat sends the full UI message history (hydrated from DB on page load),
   // so the client is the source of truth. The rolling summary on the
   // conversation row already encodes everything older than the last couple of
@@ -131,12 +144,14 @@ export async function POST(req: Request) {
       totalPages: d.total_pages,
     })),
     rollingSummary,
+    wasInterrupted,
   })
 
   return result.toUIMessageStreamResponse({
     onFinish: async ({ responseMessage, isAborted }) => {
-      if (isAborted) return
-
+      // Persist on abort too. Otherwise the user message + partial response
+      // vanish on reload, and "continue" on the next turn has nothing to
+      // anchor onto (which is why the model used to restart from the top).
       const lastUser = [...uiMessages].reverse().find((m) => m.role === "user")
       const userText = lastUser ? extractText(lastUser) : ""
       const assistantText = extractText(responseMessage)
@@ -149,6 +164,7 @@ export async function POST(req: Request) {
         content: string
         tool_calls: unknown
         citations: unknown
+        stopped?: boolean
       }> = []
 
       if (userText) {
@@ -168,6 +184,7 @@ export async function POST(req: Request) {
         content: assistantText,
         tool_calls: toolCalls.length > 0 ? toolCalls : null,
         citations: citations.length > 0 ? citations : null,
+        stopped: isAborted,
       })
 
       const { error } = await supabase.from("messages").insert(rows)
@@ -205,6 +222,7 @@ export async function POST(req: Request) {
               { role: "assistant" as const, content: assistantText },
             ],
             documents: ready.map((d) => ({ filename: d.filename })),
+            wasInterrupted: isAborted,
           })
           await supabase
             .from("conversations")

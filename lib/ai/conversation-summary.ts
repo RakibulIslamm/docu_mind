@@ -9,6 +9,7 @@ export type SummaryInput = {
   priorSummary: string | null
   recentMessages: RecentMessage[]
   documents: Array<{ filename: string }>
+  wasInterrupted?: boolean
 }
 
 export async function generateRollingSummary(
@@ -21,6 +22,9 @@ export async function generateRollingSummary(
   const transcript = input.recentMessages
     .map((m) => `[${m.role.toUpperCase()}]\n${m.content}`)
     .join("\n\n")
+  const interruptedNote = input.wasInterrupted
+    ? "\n\nNote: the assistant's last turn was INTERRUPTED by the user pressing Stop before the response finished. Record both what it managed to convey and where it left off, so the next turn can resume."
+    : ""
 
   const { text } = await generateText({
     model: getDocumindModel(),
@@ -33,7 +37,7 @@ export async function generateRollingSummary(
       "facts the assistant has established, (4) any open threads. Do NOT " +
       "echo verbatim quotes. Do NOT add commentary about the summary itself. " +
       "Write in clear neutral prose, no markdown headings.",
-    prompt: `Documents in scope:\n${docList}\n\n${prior}NEW TURNS TO INCORPORATE:\n${transcript}\n\nWrite the updated running summary now.`,
+    prompt: `Documents in scope:\n${docList}\n\n${prior}NEW TURNS TO INCORPORATE:\n${transcript}${interruptedNote}\n\nWrite the updated running summary now.`,
   })
 
   return text.trim().slice(0, 3000)

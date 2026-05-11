@@ -38,7 +38,7 @@ export const OPENROUTER_SETUP_MESSAGE =
   "OpenRouter is not configured. Set OPENROUTER_API_KEY in .env.local."
 
 export const AI_DISABLED_MESSAGE =
-  "AI features are disabled for this deployment. Clone the repo locally to try them — see README."
+  "AI features are disabled for this deployment. Clone the repo locally to try them: https://github.com/RakibulIslamm/docu_mind"
 
 /** Returns the appropriate error string for a non-configured result. */
 export function aiUnavailableMessage(

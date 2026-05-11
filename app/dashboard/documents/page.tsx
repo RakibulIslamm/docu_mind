@@ -85,7 +85,8 @@ export default async function DocumentsPage() {
               <strong>AI features are disabled for this deployment.</strong>{" "}
               {!aiEnv.configured && aiEnv.reason === "missing"
                 ? "Set OPENROUTER_API_KEY in .env.local — document parsing requires it."
-                : "Clone the repo locally to try it — see README."}
+                : <>Clone the <a href="https://github.com/RakibulIslamm/docu_mind" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:opacity-80">repo</a> locally to try it.</>
+              }
             </p>
           </div>
         )}

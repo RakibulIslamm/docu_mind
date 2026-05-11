@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getUser } from "@/lib/auth/dal"
 import { createClient } from "@/lib/supabase/server"
 import { processDocument } from "@/lib/rag/parse"
+import { readOpenRouterEnv, aiUnavailableMessage } from "@/lib/ai/env"
 
 // Manual reprocess endpoint. Authenticated users can re-trigger parsing
 // for any of their own documents (e.g. after a 'failed' status).
@@ -9,6 +10,14 @@ export async function POST(
   _req: Request,
   context: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
+  const aiEnv = readOpenRouterEnv()
+  if (!aiEnv.configured) {
+    return NextResponse.json(
+      { error: aiUnavailableMessage(aiEnv) },
+      { status: aiEnv.reason === "disabled" ? 503 : 500 },
+    )
+  }
+
   const { id } = await context.params
 
   const user = await getUser()

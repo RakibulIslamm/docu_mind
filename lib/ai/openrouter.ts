@@ -1,7 +1,7 @@
 import "server-only"
 
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
-import { readOpenRouterEnv, OPENROUTER_SETUP_MESSAGE } from "./env"
+import { readOpenRouterEnv, aiUnavailableMessage } from "./env"
 
 export const DOCUMIND_MODEL = "deepseek/deepseek-v4-flash"
 
@@ -12,7 +12,7 @@ let cachedProvider: Provider | null = null
 function getProvider(): Provider {
   if (cachedProvider) return cachedProvider
   const cfg = readOpenRouterEnv()
-  if (!cfg.configured) throw new Error(OPENROUTER_SETUP_MESSAGE)
+  if (!cfg.configured) throw new Error(aiUnavailableMessage(cfg))
   cachedProvider = createOpenAICompatible({
     name: "openrouter",
     baseURL: cfg.env.baseUrl,

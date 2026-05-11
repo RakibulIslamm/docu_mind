@@ -10,6 +10,7 @@ import {
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, type UIMessage } from "ai"
 import {
+  AlertTriangle,
   CornerDownLeft,
   FileText,
   ListTree,
@@ -50,6 +51,8 @@ type Props = {
   conversationId: string
   outline: OutlineDocument[]
   persistedMessages: PersistedMessage[]
+  aiDisabled?: boolean
+  aiDisabledReason?: "disabled" | "missing"
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -62,6 +65,8 @@ export function ChatWorkspace({
   conversationId,
   outline,
   persistedMessages,
+  aiDisabled = false,
+  aiDisabledReason,
 }: Props) {
   const [input, setInput] = useState("")
   const [showReasoning, setShowReasoning] = useState(false)
@@ -152,6 +157,17 @@ export function ChatWorkspace({
 
       {/* CENTER: Chat */}
       <section className="flex h-full min-h-0 min-w-0 flex-col">
+        {aiDisabled && (
+          <div className="flex shrink-0 items-start gap-2.5 border-b border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+            <span>
+              <strong>AI features are disabled for this deployment.</strong>{" "}
+              {aiDisabledReason === "missing"
+                ? "Set OPENROUTER_API_KEY in .env.local to enable chat."
+                : "Clone the repo locally to try it — see README."}
+            </span>
+          </div>
+        )}
         {/* Outline trigger when the xl column is hidden */}
         <div className="flex shrink-0 items-center gap-2 border-b border-border/60 bg-background px-4 py-2 xl:hidden">
           <Sheet>
@@ -223,6 +239,7 @@ export function ChatWorkspace({
           onChange={setInput}
           onSend={handleSend}
           isStreaming={isStreaming}
+          disabled={aiDisabled}
           showReasoning={showReasoning}
           onToggleReasoning={() => setShowReasoning((v) => !v)}
         />
@@ -246,6 +263,7 @@ function Composer({
   onChange,
   onSend,
   isStreaming,
+  disabled = false,
   showReasoning,
   onToggleReasoning,
 }: {
@@ -253,6 +271,7 @@ function Composer({
   onChange: (v: string) => void
   onSend: (v: string) => void
   isStreaming: boolean
+  disabled?: boolean
   showReasoning: boolean
   onToggleReasoning: () => void
 }) {
@@ -267,7 +286,7 @@ function Composer({
     el.style.height = `${next}px`
   }, [value])
 
-  const canSend = value.trim().length > 0 && !isStreaming
+  const canSend = value.trim().length > 0 && !isStreaming && !disabled
 
   return (
     <div className="border-t border-border/60 bg-background">
@@ -292,10 +311,10 @@ function Composer({
                 if (canSend) onSend(value)
               }
             }}
-            placeholder="Ask anything about the document…"
+            placeholder={disabled ? "Chat is unavailable — AI is disabled." : "Ask anything about the document…"}
             rows={1}
             className="min-h-9 resize-none border-0 bg-transparent px-2 py-2 text-sm leading-relaxed shadow-none focus-visible:ring-0"
-            disabled={isStreaming}
+            disabled={isStreaming || disabled}
           />
           <Button
             type="submit"

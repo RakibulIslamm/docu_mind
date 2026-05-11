@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth/dal"
 import { createClient } from "@/lib/supabase/server"
 import { processDocument } from "@/lib/rag/parse"
 import { describeLimit, getUserUsage } from "@/lib/billing/limits"
+import { readOpenRouterEnv, aiUnavailableMessage } from "@/lib/ai/env"
 
 const MAX_BYTES = 25 * 1024 * 1024 // 25MB
 const ACCEPTED_MIME = "application/pdf"
@@ -25,6 +26,11 @@ export type UploadResult =
   | { ok: false; error: string; limitReached?: "document_limit" }
 
 export async function uploadDocument(formData: FormData): Promise<UploadResult> {
+  const aiEnv = readOpenRouterEnv()
+  if (!aiEnv.configured) {
+    return { ok: false, error: aiUnavailableMessage(aiEnv) }
+  }
+
   const user = await requireUser()
 
   const file = formData.get("file")
@@ -92,6 +98,11 @@ export async function uploadDocument(formData: FormData): Promise<UploadResult> 
 }
 
 export async function reprocessDocument(documentId: string): Promise<UploadResult> {
+  const aiEnv = readOpenRouterEnv()
+  if (!aiEnv.configured) {
+    return { ok: false, error: aiUnavailableMessage(aiEnv) }
+  }
+
   const user = await requireUser()
   const supabase = await createClient()
 

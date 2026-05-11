@@ -7,6 +7,7 @@ import { ProcessingGuard } from "@/components/dashboard/processing-guard"
 import { createClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/dal"
 import { getUserUsage } from "@/lib/billing/limits"
+import { readOpenRouterEnv } from "@/lib/ai/env"
 
 const ACTIVE_STATUSES = new Set(["pending", "processing"])
 
@@ -15,6 +16,8 @@ export const metadata: Metadata = { title: "Documents" }
 export default async function DocumentsPage() {
   const user = await requireUser()
   const supabase = await createClient()
+  const aiEnv = readOpenRouterEnv()
+  const aiDisabled = !aiEnv.configured
 
   const [docsResult, usageResult] = await Promise.allSettled([
     supabase
@@ -71,6 +74,18 @@ export default async function DocumentsPage() {
             <p className="text-destructive">
               We couldn&rsquo;t load your documents — likely a transient
               Supabase issue. Refresh in a moment.
+            </p>
+          </div>
+        )}
+
+        {aiDisabled && (
+          <div className="mt-6 flex items-start gap-3 border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            <p>
+              <strong>AI features are disabled for this deployment.</strong>{" "}
+              {!aiEnv.configured && aiEnv.reason === "missing"
+                ? "Set OPENROUTER_API_KEY in .env.local — document parsing requires it."
+                : "Clone the repo locally to try it — see README."}
             </p>
           </div>
         )}

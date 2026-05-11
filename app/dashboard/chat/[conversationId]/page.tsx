@@ -3,6 +3,7 @@ import { ChatHeaderActions } from "@/components/chat/chat-header-actions"
 import { ChatWorkspace } from "@/components/chat/chat-workspace"
 import { requireUser } from "@/lib/auth/dal"
 import { createClient } from "@/lib/supabase/server"
+import { readOpenRouterEnv } from "@/lib/ai/env"
 import type { OutlineNode, OutlineDocument } from "@/components/chat/outline-tree"
 import type { PersistedMessage } from "@/components/chat/message-list"
 
@@ -36,6 +37,8 @@ export default async function ChatPage({
   const { conversationId } = await params
   const user = await requireUser()
   const supabase = await createClient()
+  const aiEnv = readOpenRouterEnv()
+  const aiDisabled = !aiEnv.configured
 
   const { data: convo } = await supabase
     .from("conversations")
@@ -116,6 +119,8 @@ export default async function ChatPage({
         conversationId={convo.id}
         outline={outline}
         persistedMessages={persistedMessages}
+        aiDisabled={aiDisabled}
+        aiDisabledReason={!aiEnv.configured ? aiEnv.reason : undefined}
       />
     </div>
   )

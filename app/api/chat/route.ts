@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { runDocumentChatAgent } from "@/lib/ai/agents/document-chat"
 import { extractCitations } from "@/lib/rag/citations"
 import { describeLimit, getUserUsage } from "@/lib/billing/limits"
+import { readOpenRouterEnv, aiUnavailableMessage } from "@/lib/ai/env"
 
 const RequestSchema = z.object({
   conversationId: z.string().uuid(),
@@ -17,10 +18,11 @@ export async function POST(req: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  if (!process.env.OPENROUTER_API_KEY) {
+  const aiEnv = readOpenRouterEnv()
+  if (!aiEnv.configured) {
     return Response.json(
-      { error: "OPENROUTER_API_KEY is not configured on the server." },
-      { status: 500 },
+      { error: aiUnavailableMessage(aiEnv) },
+      { status: aiEnv.reason === "disabled" ? 503 : 500 },
     )
   }
 

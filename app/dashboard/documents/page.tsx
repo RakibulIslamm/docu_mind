@@ -3,9 +3,12 @@ import { AlertTriangle } from "lucide-react"
 import { UploadDropzone } from "@/components/dashboard/upload-dropzone"
 import { DocumentGrid } from "@/components/dashboard/document-grid"
 import type { DashboardDocument } from "@/components/dashboard/document-card"
+import { ProcessingGuard } from "@/components/dashboard/processing-guard"
 import { createClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/dal"
 import { getUserUsage } from "@/lib/billing/limits"
+
+const ACTIVE_STATUSES = new Set(["pending", "processing"])
 
 export const metadata: Metadata = { title: "Documents" }
 
@@ -30,9 +33,13 @@ export default async function DocumentsPage() {
   const fetchFailed =
     docsResult.status === "rejected" ||
     (docsResult.status === "fulfilled" && !!docsResult.value.error)
+  const processingIds = documents
+    .filter((d) => ACTIVE_STATUSES.has(d.status))
+    .map((d) => d.id)
 
   return (
     <div className="flex-1 overflow-y-auto">
+      <ProcessingGuard processingIds={processingIds} />
       <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-10">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>

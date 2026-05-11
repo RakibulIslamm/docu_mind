@@ -119,6 +119,7 @@ export default async function LandingPage() {
       <SiteHeader isAuthenticated={isAuthenticated} />
       <main className="flex flex-1 flex-col">
         <Hero isAuthenticated={isAuthenticated} />
+        <Pros />
         <ProductDemo />
         <VsVectors />
         <Features />
@@ -134,7 +135,7 @@ export default async function LandingPage() {
 function SiteHeader({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2">
           <div className="flex size-7 items-center justify-center bg-foreground text-background">
             <Brain className="size-4" />
@@ -195,10 +196,10 @@ function SiteHeader({ isAuthenticated }: { isAuthenticated: boolean }) {
 function ProductDemo() {
   return (
     <section className="border-b border-border/60 bg-muted/30">
-      <div className="mx-auto w-full max-w-6xl px-6 py-24">
+      <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
         <div className="mb-12 max-w-2xl">
           <Badge variant="outline">In the chat</Badge>
-          <h2 className="font-heading mt-4 text-4xl font-semibold tracking-tight">
+          <h2 className="font-heading mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
             See the agent navigate, live.
           </h2>
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">
@@ -343,6 +344,80 @@ function MockReasoning() {
   )
 }
 
+const pros = [
+  {
+    icon: Zap,
+    title: "Edits stay cheap",
+    description:
+      "Update a PDF and you just re-parse it. No embedding pipeline to re-run, no vector index to rebuild, no nightly job.",
+  },
+  {
+    icon: Quote,
+    title: "Citations, not chunks",
+    description:
+      "Every answer carries a real section title and page number. Vector RAG points at the chunk that scored well — we point at the source.",
+  },
+  {
+    icon: Database,
+    title: "Just Postgres",
+    description:
+      "No pgvector, no Pinecone, no Weaviate. The whole retrieval layer is plain text and full-text search in the database you already have.",
+  },
+  {
+    icon: Sparkles,
+    title: "Predictable cost",
+    description:
+      "No per-document embedding bill that grows with your corpus. You pay for the queries you ask, not for storage you might never read.",
+  },
+  {
+    icon: Bot,
+    title: "Full-section context",
+    description:
+      "The agent reads whole sections, not 200-token slivers. Long-context models do their best work when they can see the surrounding argument.",
+  },
+  {
+    icon: Check,
+    title: "Zero retrieval tuning",
+    description:
+      "No chunk size, no overlap, no similarity threshold, no reranker. The agent decides what to read — the only knob is the prompt.",
+  },
+]
+
+function Pros() {
+  return (
+    <section className="border-b border-border/60">
+      <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+        <div className="mb-12 max-w-2xl sm:mb-16">
+          <Badge variant="outline">Why vectorless wins</Badge>
+          <h2 className="font-heading mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
+            Pros of going vectorless over traditional RAG.
+          </h2>
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+            Vector RAG is a stack: embedding model, vector DB, chunking
+            strategy, retriever, reranker. We skip all of it and let the agent
+            navigate structured text directly.
+          </p>
+        </div>
+        <div className="grid gap-8 md:grid-cols-3">
+          {pros.map(({ icon: Icon, title, description }) => (
+            <Card key={title}>
+              <CardHeader>
+                <div className="flex size-10 items-center justify-center bg-foreground/5 text-foreground">
+                  <Icon className="size-5" />
+                </div>
+                <CardTitle className="mt-4">{title}</CardTitle>
+                <CardDescription className="mt-2">
+                  {description}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function VsVectors() {
   const rows = [
     {
@@ -373,19 +448,46 @@ function VsVectors() {
   ]
   return (
     <section className="border-b border-border/60">
-      <div className="mx-auto w-full max-w-5xl px-6 py-24">
+      <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-24">
         <div className="mb-12 max-w-2xl">
           <Badge variant="outline">Vectorless vs vector RAG</Badge>
-          <h2 className="font-heading mt-4 text-4xl font-semibold tracking-tight">
+          <h2 className="font-heading mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
             What we don't do.
           </h2>
         </div>
-        <div className="overflow-hidden border border-border">
+        {/* Mobile: stacked card per comparison row. The 3-col table is unreadable
+            below ~640px, so each row becomes its own card with the label as the
+            heading and Vector RAG / DocuMind stacked underneath. */}
+        <div className="flex flex-col gap-3 sm:hidden">
+          {rows.map((r) => (
+            <div key={r.label} className="border border-border bg-background">
+              <div className="border-b border-border bg-muted px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-widest">
+                {r.label}
+              </div>
+              <div className="grid grid-cols-1 divide-y divide-border">
+                <div className="px-4 py-3">
+                  <div className="text-[0.6rem] font-semibold uppercase tracking-widest text-muted-foreground">
+                    Vector RAG
+                  </div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    {r.vector}
+                  </div>
+                </div>
+                <div className="px-4 py-3">
+                  <div className="text-[0.6rem] font-semibold uppercase tracking-widest text-foreground">
+                    DocuMind
+                  </div>
+                  <div className="mt-1 text-sm">{r.docu}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Desktop: the original 3-col table. */}
+        <div className="hidden overflow-hidden border border-border sm:block">
           <div className="grid grid-cols-[1fr_1.4fr_1.4fr] divide-x divide-border bg-muted text-[0.65rem] font-semibold uppercase tracking-widest">
             <div className="px-4 py-3 text-muted-foreground">&nbsp;</div>
-            <div className="px-4 py-3 text-muted-foreground">
-              Vector RAG
-            </div>
+            <div className="px-4 py-3 text-muted-foreground">Vector RAG</div>
             <div className="px-4 py-3 text-foreground">DocuMind</div>
           </div>
           {rows.map((r) => (
@@ -411,20 +513,20 @@ function VsVectors() {
 function Hero({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <section className="border-b border-border/60">
-      <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-8 px-6 py-24 text-center md:py-32">
+      <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-6 px-4 py-16 text-center sm:gap-8 sm:px-6 sm:py-24 md:py-32">
         <Badge variant="outline" className="gap-2">
           <Sparkles className="size-3" />
           Vectorless RAG
         </Badge>
-        <h1 className="font-heading max-w-3xl text-5xl font-semibold leading-[1.05] tracking-tight md:text-6xl">
+        <h1 className="font-heading max-w-3xl text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl md:text-6xl">
           Chat with any PDF — without vectors.
         </h1>
-        <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">
+        <p className="max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
           DocuMind reads, navigates, and cites your documents agentically. No
           embeddings, no vector database, no chunking heuristics — just real
           answers with real page citations.
         </p>
-        <div className="flex flex-col items-center gap-3 sm:flex-row">
+        <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center">
           <Button
             size="lg"
             nativeButton={false}
@@ -443,7 +545,7 @@ function Hero({ isAuthenticated }: { isAuthenticated: boolean }) {
           </Button>
         </div>
         {!isAuthenticated ? (
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">
+          <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground sm:text-xs">
             No credit card required · 3 documents free
           </p>
         ) : null}
@@ -455,10 +557,10 @@ function Hero({ isAuthenticated }: { isAuthenticated: boolean }) {
 function Features() {
   return (
     <section id="features" className="border-b border-border/60">
-      <div className="mx-auto w-full max-w-6xl px-6 py-24">
-        <div className="mb-16 max-w-2xl">
+      <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+        <div className="mb-12 max-w-2xl sm:mb-16">
           <Badge variant="outline">Why vectorless</Badge>
-          <h2 className="font-heading mt-4 text-4xl font-semibold tracking-tight">
+          <h2 className="font-heading mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
             Retrieval the way a person would do it.
           </h2>
         </div>
@@ -502,10 +604,10 @@ function HowItWorks() {
   ]
   return (
     <section id="how" className="border-b border-border/60 bg-muted/30">
-      <div className="mx-auto w-full max-w-6xl px-6 py-24">
-        <div className="mb-16 max-w-2xl">
+      <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+        <div className="mb-12 max-w-2xl sm:mb-16">
           <Badge variant="outline">How it works</Badge>
-          <h2 className="font-heading mt-4 text-4xl font-semibold tracking-tight">
+          <h2 className="font-heading mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
             Three steps. Zero vectors.
           </h2>
         </div>
@@ -513,7 +615,7 @@ function HowItWorks() {
           {steps.map((step) => (
             <div
               key={step.n}
-              className="flex flex-col gap-4 bg-background p-8"
+              className="flex flex-col gap-4 bg-background p-6 sm:p-8"
             >
               <span className="font-mono text-xs tracking-widest text-muted-foreground">
                 {step.n}
@@ -535,10 +637,10 @@ function HowItWorks() {
 function Pricing() {
   return (
     <section id="pricing" className="border-b border-border/60">
-      <div className="mx-auto w-full max-w-6xl px-6 py-24">
-        <div className="mb-16 max-w-2xl">
+      <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+        <div className="mb-12 max-w-2xl sm:mb-16">
           <Badge variant="outline">Pricing</Badge>
-          <h2 className="font-heading mt-4 text-4xl font-semibold tracking-tight">
+          <h2 className="font-heading mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
             Simple, honest pricing.
           </h2>
         </div>
@@ -602,10 +704,10 @@ function Pricing() {
 function Faq() {
   return (
     <section id="faq" className="border-b border-border/60">
-      <div className="mx-auto w-full max-w-3xl px-6 py-24">
+      <div className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6 sm:py-24">
         <div className="mb-12 text-center">
           <Badge variant="outline">FAQ</Badge>
-          <h2 className="font-heading mt-4 text-4xl font-semibold tracking-tight">
+          <h2 className="font-heading mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
             Common questions
           </h2>
         </div>

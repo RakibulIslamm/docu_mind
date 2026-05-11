@@ -1,13 +1,18 @@
 import type { Metadata, Viewport } from "next"
-import { Geist, Geist_Mono, Noto_Sans, Playfair_Display } from "next/font/google"
+import { Fraunces, Geist, Geist_Mono, Noto_Sans } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/site/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils"
 import "./globals.css"
 
-const playfairDisplayHeading = Playfair_Display({
+// Fraunces — modern variable serif designed for editorial/document-oriented
+// surfaces. Loads the regular axis (100–900) plus italics so the
+// `font-heading` + `font-semibold` Tailwind combo renders with a real weight
+// instead of a synthesized fake-bold.
+const frauncesHeading = Fraunces({
   subsets: ["latin"],
+  axes: ["opsz", "SOFT"],
   variable: "--font-heading",
 })
 
@@ -84,7 +89,7 @@ export default function RootLayout({
         geistMono.variable,
         "font-sans",
         notoSans.variable,
-        playfairDisplayHeading.variable,
+        frauncesHeading.variable,
       )}
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col bg-background text-foreground">

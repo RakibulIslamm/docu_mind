@@ -19,16 +19,18 @@ export type Usage = {
   canAsk: boolean
 }
 
-const PRO: Usage = {
-  plan: "pro",
-  documentCount: 0,
-  questionsThisMonth: 0,
-  documentLimit: Infinity,
-  questionLimit: Infinity,
-  documentsRemaining: null,
-  questionsRemaining: null,
-  canUpload: true,
-  canAsk: true,
+function proUsage(documentCount: number): Usage {
+  return {
+    plan: "pro",
+    documentCount,
+    questionsThisMonth: 0,
+    documentLimit: Infinity,
+    questionLimit: Infinity,
+    documentsRemaining: null,
+    questionsRemaining: null,
+    canUpload: true,
+    canAsk: true,
+  }
 }
 
 function startOfMonthISO(): string {
@@ -54,7 +56,13 @@ export async function getUserUsage(
 
   const plan: Plan = profile?.plan === "pro" ? "pro" : "free"
   if (plan === "pro") {
-    return { ...PRO }
+    // Pro is unlimited, but still surface the actual doc count so the
+    // "N uploaded · Unlimited" badge shows the real number.
+    const { count } = await supabase
+      .from("documents")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+    return proUsage(count ?? 0)
   }
 
   const monthStart = startOfMonthISO()

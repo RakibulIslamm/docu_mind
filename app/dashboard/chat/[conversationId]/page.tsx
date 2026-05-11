@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 import { ChatHeaderActions } from "@/components/chat/chat-header-actions"
+import { ChatPageNav } from "@/components/chat/chat-page-nav"
 import { ChatWorkspace } from "@/components/chat/chat-workspace"
 import { requireUser } from "@/lib/auth/dal"
 import { createClient } from "@/lib/supabase/server"
@@ -102,6 +103,7 @@ export default async function ChatPage({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border/60 bg-background/80 px-4 backdrop-blur sm:px-6">
+        <ChatPageNav />
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <h1 className="truncate text-sm font-semibold" title={convo.title ?? undefined}>
             {convo.title ?? "Untitled chat"}

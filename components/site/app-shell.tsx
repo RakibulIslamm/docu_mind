@@ -25,6 +25,7 @@ import {
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { ThemeToggle } from "./theme-toggle"
 import { SignOutMenuItem } from "./sign-out-menu-item"
+import { SidebarProvider, useSidebar } from "./sidebar-context"
 
 type Plan = "free" | "pro" | string
 
@@ -77,12 +78,30 @@ type Props = {
 }
 
 export function AppShell({ email, avatarUrl, plan, children }: Props) {
+  return (
+    <SidebarProvider>
+      <AppShellInner email={email} avatarUrl={avatarUrl} plan={plan}>
+        {children}
+      </AppShellInner>
+    </SidebarProvider>
+  )
+}
+
+function AppShellInner({ email, avatarUrl, plan, children }: Props) {
   const initials = (email ?? "?").slice(0, 2).toUpperCase()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { collapsed } = useSidebar()
 
   return (
     <div className="flex h-dvh w-full">
-      <DesktopSidebar email={email} avatarUrl={avatarUrl} plan={plan} initials={initials} />
+      {!collapsed && (
+        <DesktopSidebar
+          email={email}
+          avatarUrl={avatarUrl}
+          plan={plan}
+          initials={initials}
+        />
+      )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <MobileTopbar
           open={mobileOpen}

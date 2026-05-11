@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -143,18 +144,28 @@ export function ChatWorkspace({
     }
   }
 
-  const handleCitationClick = (citation: Citation) => {
-    for (const doc of outline) {
-      const match = findSectionForPage(doc.sections, citation.pageStart)
-      if (match) {
-        setActiveSectionId(match.sectionId)
-        return
+  const handleCitationClick = useCallback(
+    (citation: Citation) => {
+      for (const doc of outline) {
+        const match = findSectionForPage(doc.sections, citation.pageStart)
+        if (match) {
+          setActiveSectionId(match.sectionId)
+          return
+        }
       }
-    }
-  }
+    },
+    [outline],
+  )
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[260px_minmax(0,1fr)_340px]">
+    <div
+      className={cn(
+        "grid min-h-0 flex-1 grid-cols-1",
+        showReasoning
+          ? "xl:grid-cols-[260px_minmax(0,1fr)_340px]"
+          : "xl:grid-cols-[260px_minmax(0,1fr)]",
+      )}
+    >
       <UpgradeDialog
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
@@ -267,10 +278,12 @@ export function ChatWorkspace({
         />
       </section>
 
-      {/* RIGHT: Reasoning inline panel — xl+ only */}
-      <aside className="hidden xl:block h-full min-h-0 overflow-hidden border-l border-border/60 bg-muted/20">
-        <ReasoningPanel messages={messages} />
-      </aside>
+      {/* RIGHT: Reasoning inline panel — xl+ only, toggleable */}
+      {showReasoning && (
+        <aside className="hidden xl:block h-full min-h-0 overflow-hidden border-l border-border/60 bg-muted/20">
+          <ReasoningPanel messages={messages} />
+        </aside>
+      )}
 
       {/* Mobile reasoning sheet */}
       <Sheet open={mobileReasoningOpen} onOpenChange={setMobileReasoningOpen}>

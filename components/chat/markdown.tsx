@@ -121,7 +121,12 @@ const components: Components = {
 
 function MarkdownImpl({ text, className }: Props) {
   return (
-    <div className={cn("text-sm text-foreground", className)}>
+    <div
+      className={cn(
+        "min-w-0 wrap-break-word text-sm text-foreground",
+        className,
+      )}
+    >
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {text}
       </ReactMarkdown>

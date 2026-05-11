@@ -94,6 +94,6 @@ ${docList}${summaryBlock}`
     // answer. The prompt has a 4-tool soft stop earlier; this is the cap.
     stopWhen: stepCountIs(15),
     temperature: 0.2,
-    maxOutputTokens: 10000,
+    maxOutputTokens: 15000,
   })
 }

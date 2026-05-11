@@ -73,6 +73,7 @@ export function ChatWorkspace({
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null)
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const transcriptRef = useRef<HTMLDivElement>(null)
+  const stickToBottomRef = useRef(true)
 
   const initialMessages = useMemo<UIMessage[]>(
     () => persistedToUiMessages(persistedMessages),
@@ -96,9 +97,10 @@ export function ChatWorkspace({
     transport,
     onError: (err) => {
       const m = err instanceof Error ? err.message : String(err)
-      // The 402 response body includes a `limitReached` field. The AI SDK
-      // surfaces the body as the error message — sniff it.
-      if (/question[_ ]limit|limitReached/i.test(m)) {
+      const body = parseErrorBody(m)
+      // Free-plan users hitting the question cap → show upgrade dialog.
+      // Pro users hitting their own cap → fall through to the inline error.
+      if (body?.limitReached === "question_limit" && /free plan/i.test(body.error ?? "")) {
         setUpgradeOpen(true)
         return
       }
@@ -111,17 +113,29 @@ export function ChatWorkspace({
   // Find the live (in-flight) tool call to show in the status strip.
   const liveTool = findLiveTool(messages, isStreaming)
 
-  // Auto-scroll on new content.
-  useEffect(() => {
+  const handleTranscriptScroll = () => {
     const el = transcriptRef.current
     if (!el) return
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    stickToBottomRef.current = distanceFromBottom <= 64
+  }
+
+  // Auto-scroll on new content — only when the user is at (or near) the bottom.
+  useEffect(() => {
+    if (!stickToBottomRef.current) return
+    const el = transcriptRef.current
+    if (!el) return
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: isStreaming ? "auto" : "smooth",
+    })
   }, [messages, isStreaming])
 
   const handleSend = async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed || isStreaming) return
     setInput("")
+    stickToBottomRef.current = true
     try {
       await sendMessage({ text: trimmed })
     } catch (e) {
@@ -194,7 +208,11 @@ export function ChatWorkspace({
             </SheetContent>
           </Sheet>
         </div>
-        <div ref={transcriptRef} className="flex-1 overflow-y-auto">
+        <div
+          ref={transcriptRef}
+          onScroll={handleTranscriptScroll}
+          className="flex-1 overflow-y-auto"
+        >
           <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
             {messages.length === 0 ? (
               <EmptyState
@@ -513,8 +531,25 @@ function findSectionForPage(
   return null
 }
 
+function parseErrorBody(raw: string): { error?: string; limitReached?: string } | null {
+  const trimmed = raw.trim()
+  if (!trimmed.startsWith("{")) return null
+  try {
+    const parsed = JSON.parse(trimmed) as { error?: unknown; limitReached?: unknown }
+    return {
+      error: typeof parsed.error === "string" ? parsed.error : undefined,
+      limitReached:
+        typeof parsed.limitReached === "string" ? parsed.limitReached : undefined,
+    }
+  } catch {
+    return null
+  }
+}
+
 function friendlyChatError(e: unknown): string {
   const m = e instanceof Error ? e.message : String(e)
+  const body = parseErrorBody(m)
+  if (body?.error) return body.error
   if (/server action/i.test(m)) {
     return "Page got out of sync — refresh and try again."
   }

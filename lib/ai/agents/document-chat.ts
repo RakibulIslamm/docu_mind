@@ -47,6 +47,12 @@ ANSWER FORMAT:
   with a citation.
 - If the answer genuinely isn't in the document, say so — don't speculate.
 
+RESPONSE LENGTH:
+- Your final answer MUST stay under 10,000 tokens (~7,500 words). Be
+  concise. If the user asks for an exhaustive dump, deliver the most
+  important points and offer to expand on request — never blow past
+  the cap.
+
 YOU MUST PRODUCE A NATURAL-LANGUAGE ANSWER. Tool calls are the means; the
 written answer is the goal. Never end a turn with only tool calls.`
 
@@ -54,12 +60,14 @@ export type AgentRunOptions = {
   context: ToolContext
   messages: ModelMessage[]
   documents: Array<{ id: string; filename: string; totalPages: number | null }>
+  rollingSummary?: string | null
 }
 
 export function runDocumentChatAgent({
   context,
   messages,
   documents,
+  rollingSummary,
 }: AgentRunOptions) {
   const docList = documents
     .map(
@@ -68,10 +76,14 @@ export function runDocumentChatAgent({
     )
     .join("\n")
 
+  const summaryBlock = rollingSummary
+    ? `\n\nPRIOR CONVERSATION CONTEXT (summary of earlier turns — treat as authoritative background, do NOT re-derive what's already established here):\n${rollingSummary}\n`
+    : ""
+
   const system = `${SYSTEM_PROMPT}
 
 The current conversation is grounded in these documents (use these IDs in tool calls):
-${docList}`
+${docList}${summaryBlock}`
 
   return streamText({
     model: getDocumindModel(),
@@ -82,5 +94,6 @@ ${docList}`
     // answer. The prompt has a 4-tool soft stop earlier; this is the cap.
     stopWhen: stepCountIs(15),
     temperature: 0.2,
+    maxOutputTokens: 10000,
   })
 }

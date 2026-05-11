@@ -3,6 +3,8 @@ import { z } from "zod"
 import { getUser } from "@/lib/auth/dal"
 import { createClient } from "@/lib/supabase/server"
 import { runDocumentChatAgent } from "@/lib/ai/agents/document-chat"
+import { compactToolOutputsInHistory } from "@/lib/ai/compact-history"
+import { generateRollingSummary } from "@/lib/ai/conversation-summary"
 import { extractCitations } from "@/lib/rag/citations"
 import { describeLimit, getUserUsage } from "@/lib/billing/limits"
 import { readOpenRouterEnv, aiUnavailableMessage } from "@/lib/ai/env"
@@ -60,7 +62,9 @@ export async function POST(req: Request) {
   // Authorize the conversation.
   const { data: conversation, error: convoErr } = await supabase
     .from("conversations")
-    .select("id, user_id, document_ids")
+    .select(
+      "id, user_id, document_ids, rolling_summary, summary_turn_count",
+    )
     .eq("id", conversationId)
     .eq("user_id", user.id)
     .single()
@@ -102,8 +106,17 @@ export async function POST(req: Request) {
   }
 
   // useChat sends the full UI message history (hydrated from DB on page load),
-  // so the client is the source of truth. No need to re-merge with DB here.
-  const modelMessages = await convertToModelMessages(uiMessages)
+  // so the client is the source of truth. The rolling summary on the
+  // conversation row already encodes everything older than the last couple of
+  // turns, so when it's present we send only the most recent 4 messages to
+  // the model — input tokens stay roughly flat instead of growing per turn.
+  const rollingSummary = conversation.rolling_summary ?? null
+  const trimmed =
+    rollingSummary && uiMessages.length > 4 ? uiMessages.slice(-4) : uiMessages
+  // Stub out tool outputs from older assistant turns in whatever slice we
+  // still send — the LLM already digested them into prose.
+  const compacted = compactToolOutputsInHistory(trimmed)
+  const modelMessages = await convertToModelMessages(compacted)
 
   const result = runDocumentChatAgent({
     context: {
@@ -117,6 +130,7 @@ export async function POST(req: Request) {
       filename: d.filename,
       totalPages: d.total_pages,
     })),
+    rollingSummary,
   })
 
   return result.toUIMessageStreamResponse({
@@ -175,6 +189,37 @@ export async function POST(req: Request) {
             .from("conversations")
             .update({ title: newTitle })
             .eq("id", conversation.id)
+        }
+      }
+
+      // Refresh the rolling summary so the next turn pays a flat input-token
+      // cost. Off the stream's critical path; failure is non-fatal.
+      if (assistantText) {
+        try {
+          const summary = await generateRollingSummary({
+            priorSummary: rollingSummary,
+            recentMessages: [
+              ...(userText
+                ? [{ role: "user" as const, content: userText }]
+                : []),
+              { role: "assistant" as const, content: assistantText },
+            ],
+            documents: ready.map((d) => ({ filename: d.filename })),
+          })
+          await supabase
+            .from("conversations")
+            .update({
+              rolling_summary: summary,
+              summary_updated_at: new Date().toISOString(),
+              summary_turn_count:
+                (conversation.summary_turn_count ?? 0) + 1,
+            })
+            .eq("id", conversation.id)
+        } catch (e) {
+          console.error(
+            "[chat] rolling summary failed:",
+            e instanceof Error ? e.message : e,
+          )
         }
       }
     },
